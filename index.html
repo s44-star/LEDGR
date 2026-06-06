@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>LEDGR · powered by LexConv</title>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#020503;font-family:'IBM Plex Mono',monospace}
+@keyframes tk{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes modalIn{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:scale(1)}}
+@keyframes grow{from{height:0}to{}}
+.panel-in{animation:fadeUp .35s ease both}
+.modal-in{animation:modalIn .2s ease both}
+.row-hover{transition:background .15s}
+.row-hover:hover{background:#061008}
+input::placeholder{color:#4a6b56}
+select option{background:#0a160d;color:#fff}
+button:active{filter:brightness(1.2)}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:#020503}
+::-webkit-scrollbar-thumb{background:#1d3d29}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.bar{animation:grow .6s ease both}
+@media(max-width:768px){
+.grid4{grid-template-columns:1fr 1fr}
+.grid3{grid-template-columns:1fr}
+.grid2{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div id="root">
+  <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#020503;font-family:'IBM Plex Mono',monospace">
+    <div style="font-size:28px;font-weight:800;letter-spacing:4px;color:#fff;text-shadow:0 0 12px #00FF88,0 0 24px rgba(0,255,136,.4)">LEDGR<span style="color:#00FF88">·</span></div>
+    <div style="font-size:10px;color:#6f9a80;letter-spacing:2px;margin-top:8px">POWERED BY <span style="color:#00FF88">LEXCONV</span></div>
+    <div style="font-size:9px;color:#4a6b56;letter-spacing:2px;margin-top:20px;animation:pulse 1.2s ease-in-out infinite">INITIALIZING TERMINAL...</div>
+  </div>
+</div>
+<style>@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}</style>
+<script type="text/babel">
+const {useState,useEffect,useMemo}=React;
+const C={bg:"#020503",bg2:"#061008",bg3:"#0a160d",panel:"#07110a",border:"#11281a",border2:"#1d3d29",neon:"#00FF88",neonDim:"#00b35f",green:"#00FF88",red:"#FF4D6D",yellow:"#FFE600",blue:"#38BDF8",text:"#bfe8cf",dim:"#4a6b56",label:"#6f9a80"};
+const glow=(c=C.neon,s=12)=>`0 0 ${s}px ${c}, 0 0 ${s*2}px rgba(0,255,136,0.15)`;
+const fmt=n=>"₹"+Number(n||0).toLocaleString("en-IN");
+const MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const MODULES=[{id:"dashboard",label:"COMMAND",icon:"▣"},{id:"invoices",label:"INVOICES",icon:"▤"},{id:"clients",label:"CLIENTS",icon:"▦"},{id:"payments",label:"PAYMENTS",icon:"▥"},{id:"gst",label:"GST DESK",icon:"▧"},{id:"ca",label:"CA PORTAL",icon:"▨"},{id:"analytics",label:"ANALYTICS",icon:"▩"},{id:"settings",label:"CONFIG",icon:"⚙"}];
+
+function useIsMobile(){const[m,setM]=useState(false);useEffect(()=>{const c=()=>setM(window.innerWidth<768);c();window.addEventListener("resize",c);return()=>window.removeEventListener("resize",c)},[]);return m}
+function useCountUp(t,dur=900){const[v,setV]=useState(0);useEffect(()=>{let raf,s;const tick=x=>{if(!s)s=x;const p=Math.min((x-s)/dur,1);setV(t*(1-Math.pow(1-p,3)));if(p<1)raf=requestAnimationFrame(tick)};raf=requestAnimationFrame(tick);return()=>cancelAnimationFrame(raf)},[t,dur]);return v}
+
+function StatusBar({mrr}){
+const[t,setT]=useState(null);
+useEffect(()=>{setT(new Date());const i=setInterval(()=>setT(new Date()),1000);return()=>clearInterval(i)},[]);
+return(<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:"#000",borderBottom:`1px solid ${C.neon}`,boxShadow:glow(C.neon,6),padding:"7px 12px",position:"sticky",top:0,zIndex:100}}>
+<div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
+<span style={{fontSize:15,fontWeight:800,letterSpacing:2,color:"#fff",textShadow:glow(C.neon,8),whiteSpace:"nowrap"}}>LEDGR<span style={{color:C.neon}}>·</span></span>
+<span style={{fontSize:8,color:C.label,whiteSpace:"nowrap"}}>by <span style={{color:C.neon}}>LexConv</span></span></div>
+<div style={{display:"flex",alignItems:"center",gap:8}}>
+<span style={{fontSize:11,color:C.neon,fontWeight:700,textShadow:glow(C.neon,5),whiteSpace:"nowrap"}}>{fmt(mrr)}</span>
+<span style={{color:C.dim}}>|</span>
+<span style={{fontSize:12,color:C.neon,fontWeight:600,letterSpacing:1,textShadow:glow(C.neon,5)}}>{t?t.toLocaleTimeString("en-IN",{hour12:false}):"--:--:--"}</span></div></div>)}
+
+function Ticker(){
+const items=[["GSTR-1","DUE 11 JUN"],["GSTR-3B","DUE 20 JUN"],["GST 18%","STANDARD"],["E-WAY","MANDATORY >₹50K"],["ITC","CLAIM 30 NOV"],["TDS","DUE 07 JUN"]];
+const all=[...items,...items];
+return(<div style={{background:"#000",borderBottom:`1px solid ${C.border}`,overflow:"hidden",whiteSpace:"nowrap",padding:"5px 0"}}>
+<div style={{display:"inline-flex",gap:30,animation:"tk 28s linear infinite"}}>
+{all.map((x,i)=><span key={i} style={{fontSize:10,letterSpacing:1,color:C.label}}>{x[0]} <span style={{color:C.neon}}>{x[1]}</span></span>)}</div></div>)}
+
+const Panel=({title,action,children,style})=>(<div className="panel-in" style={{background:C.panel,border:`1px solid ${C.border}`,...style}}>
+{title&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,padding:"8px 12px",background:C.bg3,borderBottom:`1px solid ${C.border2}`,flexWrap:"wrap"}}>
+<span style={{fontSize:9,fontWeight:700,letterSpacing:1.5,color:C.neon,textShadow:glow(C.neon,4)}}>{title}</span>{action}</div>}
+<div style={{padding:12}}>{children}</div></div>);
+
+const Metric=({label,value,prefix="₹",delta,deltaColor,sub,animate=true})=>{
+const num=typeof value==="number"?value:0;
+const a=useCountUp(animate?num:0);
+const disp=typeof value==="number"?prefix+Math.round(a).toLocaleString("en-IN"):value;
+return(<div className="panel-in" style={{background:C.panel,border:`1px solid ${C.border}`,padding:"12px 14px",position:"relative",overflow:"hidden"}}>
+<div style={{fontSize:9,color:C.label,letterSpacing:1,marginBottom:6}}>{label}</div>
+<div style={{fontSize:22,fontWeight:700,color:"#fff",lineHeight:1,textShadow:glow(C.neon,6)}}>{disp}</div>
+{delta&&<div style={{fontSize:10,color:deltaColor||C.neon,marginTop:5}}>{delta} {sub&&<span style={{color:C.dim}}>{sub}</span>}</div>}
+<div style={{position:"absolute",bottom:0,left:0,height:2,width:"100%",background:`linear-gradient(90deg,${C.neon},transparent)`,opacity:.5}}/></div>)};
+
+const StatusTag=({s})=>{const m={PAID:C.green,PENDING:C.yellow,OVERDUE:C.red,DRAFT:C.dim};
+return<span style={{fontSize:9,fontWeight:700,letterSpacing:1,color:m[s],border:`1px solid ${m[s]}`,padding:"2px 6px",boxShadow:`0 0 6px ${m[s]}40`,whiteSpace:"nowrap"}}>{s}</span>};
+
+const Empty=({msg,cta,onCta})=>(<div style={{padding:"40px 16px",textAlign:"center"}}>
+<div style={{fontSize:30,color:C.border2,marginBottom:12}}>◈</div>
+<div style={{fontSize:12,color:C.label,marginBottom:cta?16:0,lineHeight:1.5}}>{msg}</div>
+{cta&&<button onClick={onCta} style={btnPrimary}>{cta}</button>}</div>);
+
+const Scroll=({children})=><div style={{overflowX:"auto",WebkitOverflowScrolling:"touch"}}>{children}</div>;
+
+// SIMPLE BAR CHART (no library)
+function BarChartLite({data}){
+const max=Math.max(...data.map(d=>d.v),1);
+return(<div style={{display:"flex",alignItems:"flex-end",gap:4,height:200,padding:"10px 0",borderBottom:`1px solid ${C.border2}`}}>
+{data.map((d,i)=>(<div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4,height:"100%",justifyContent:"flex-end"}}>
+<div className="bar" style={{width:"70%",height:`${(d.v/max)*100}%`,minHeight:d.v>0?3:0,background:`linear-gradient(180deg,${C.neon},${C.neonDim})`,boxShadow:d.v>0?glow(C.neon,4):"none",borderRadius:"2px 2px 0 0",animationDelay:`${i*40}ms`}}/>
+<span style={{fontSize:8,color:C.label}}>{d.m}</span></div>))}</div>)}
+
+function Dashboard({invoices,onCreate}){
+const t=useMemo(()=>({invoiced:invoices.reduce((s,i)=>s+i.amount+i.gst,0),collected:invoices.filter(i=>i.status==="PAID").reduce((s,i)=>s+i.amount+i.gst,0),outstanding:invoices.filter(i=>i.status==="PENDING").reduce((s,i)=>s+i.amount+i.gst,0),overdue:invoices.filter(i=>i.status==="OVERDUE").reduce((s,i)=>s+i.amount+i.gst,0)}),[invoices]);
+const rev=useMemo(()=>{const m={};invoices.forEach(i=>{const k=MONTHS[new Date(i.date).getMonth()];m[k]=(m[k]||0)+i.amount+i.gst});return MONTHS.map(k=>({m:k,v:Math.round((m[k]||0)/1000)}))},[invoices]);
+if(invoices.length===0)return(<div style={{display:"flex",flexDirection:"column",gap:12}}>
+<div className="grid4">{["INVOICED","COLLECTED","OUTSTANDING","OVERDUE"].map(l=><Metric key={l} label={l} value={0}/>)}</div>
+<Panel title="▸ COMMAND CENTER"><Empty msg="No invoices yet. Create your first to bring the terminal alive." cta="+ CREATE FIRST INVOICE" onCta={onCreate}/></Panel></div>);
+return(<div style={{display:"flex",flexDirection:"column",gap:12}}>
+<div className="grid4">
+<Metric label="INVOICED · TOTAL" value={t.invoiced}/>
+<Metric label="COLLECTED" value={t.collected} deltaColor={C.green} delta={t.invoiced?Math.round(t.collected/t.invoiced*100)+"% rate":""}/>
+<Metric label="OUTSTANDING" value={t.outstanding} deltaColor={C.yellow} delta={invoices.filter(i=>i.status==="PENDING").length+" pending"}/>
+<Metric label="OVERDUE" value={t.overdue} deltaColor={C.red} delta={invoices.filter(i=>i.status==="OVERDUE").length+" overdue"}/></div>
+<Panel title="▸ REVENUE · BY MONTH (₹ THOUSANDS)"><BarChartLite data={rev}/></Panel></div>)}
+
+function Invoices({invoices,onCreate,onStatus}){
+const[f,setF]=useState("ALL");
+const fl=f==="ALL"?invoices:invoices.filter(i=>i.status===f);
+return(<Panel title="▸ INVOICE LEDGER" action={<button onClick={onCreate} style={btnPrimary}>+ NEW</button>}>
+<div style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap"}}>
+{["ALL","PAID","PENDING","OVERDUE"].map(x=><button key={x} onClick={()=>setF(x)} style={{...chip,...(f===x?chipActive:{})}}>{x}</button>)}</div>
+{fl.length===0?<Empty msg="No invoices in this view." cta="+ CREATE INVOICE" onCta={onCreate}/>:
+<Scroll><table style={tbl}><thead><tr style={trHead}><th style={th}>INVOICE</th><th style={th}>CLIENT</th><th style={thR}>AMOUNT</th><th style={thR}>GST</th><th style={thC}>STATUS</th><th style={thR}>DATE</th></tr></thead><tbody>
+{fl.map(inv=>(<tr key={inv.id} className="row-hover" style={{borderBottom:`1px solid ${C.border}`}}>
+<td style={{...td,color:C.neon,fontWeight:600,whiteSpace:"nowrap"}}>{inv.id}</td>
+<td style={{...td,whiteSpace:"nowrap"}}>{inv.client}</td>
+<td style={tdR}>{fmt(inv.amount)}</td>
+<td style={{...tdR,color:C.label}}>{fmt(inv.gst)}</td>
+<td style={tdC} onClick={()=>onStatus(inv.id)}><StatusTag s={inv.status}/></td>
+<td style={{...tdR,color:C.dim,whiteSpace:"nowrap"}}>{inv.date}</td></tr>))}</tbody></table></Scroll>}</Panel>)}
+
+function Clients({invoices}){
+const cl=useMemo(()=>{const m={};invoices.forEach(i=>{if(!m[i.client])m[i.client]={name:i.client,gstin:i.clientGstin||"—",total:0,outstanding:0};m[i.client].total+=i.amount+i.gst;if(i.status!=="PAID")m[i.client].outstanding+=i.amount+i.gst});return Object.values(m)},[invoices]);
+return(<Panel title="▸ CLIENT VAULT">
+{cl.length===0?<Empty msg="Clients appear here automatically as you invoice them."/>:
+<Scroll><table style={tbl}><thead><tr style={trHead}><th style={th}>CLIENT</th><th style={th}>GSTIN</th><th style={thR}>LIFETIME</th><th style={thR}>OUTSTANDING</th></tr></thead><tbody>
+{cl.map(c=>(<tr key={c.name} className="row-hover" style={{borderBottom:`1px solid ${C.border}`}}>
+<td style={{...td,fontWeight:600,color:"#fff",whiteSpace:"nowrap"}}>{c.name}</td>
+<td style={{...td,color:C.label,fontSize:10,whiteSpace:"nowrap"}}>{c.gstin}</td>
+<td style={tdR}>{fmt(c.total)}</td>
+<td style={{...tdR,color:c.outstanding>0?C.red:C.green}}>{fmt(c.outstanding)}</td></tr>))}</tbody></table></Scroll>}</Panel>)}
+
+function Payments({invoices}){
+const p=invoices.filter(i=>i.status!=="PAID");
+return(<Panel title="▸ COLLECTION QUEUE">
+{p.length===0?<Empty msg="No outstanding payments. All clear."/>:
+<Scroll><table style={tbl}><thead><tr style={trHead}><th style={th}>INVOICE</th><th style={th}>CLIENT</th><th style={thR}>DUE</th><th style={thC}>STATUS</th><th style={thC}>ACTION</th></tr></thead><tbody>
+{p.map(inv=>(<tr key={inv.id} className="row-hover" style={{borderBottom:`1px solid ${C.border}`}}>
+<td style={{...td,color:C.neon,whiteSpace:"nowrap"}}>{inv.id}</td>
+<td style={{...td,whiteSpace:"nowrap"}}>{inv.client}</td>
+<td style={tdR}>{fmt(inv.amount+inv.gst)}</td>
+<td style={tdC}><StatusTag s={inv.status}/></td>
+<td style={tdC}><button style={{...btnSm,fontSize:9}}>⟶ REMIND</button></td></tr>))}</tbody></table></Scroll>}</Panel>)}
+
+function GSTDesk({invoices}){
+const o=invoices.reduce((s,i)=>s+i.gst,0);
+return(<div style={{display:"flex",flexDirection:"column",gap:12}}>
+<div className="grid3">
+<Metric label="OUTPUT TAX" value={o} deltaColor={C.green} delta={invoices.length?"GSTR-1 ready":""}/>
+<Metric label="INPUT TAX CREDIT" value={0} deltaColor={C.blue} delta="wire purchases"/>
+<Metric label="NET LIABILITY" value={o} deltaColor={C.yellow} delta="due 20th"/></div>
+<Panel title="▸ GSTR-1 SUMMARY" action={invoices.length?<button style={btnSm}>↓ EXPORT</button>:null}>
+{invoices.length===0?<Empty msg="GSTR-1 summary builds from your invoices."/>:
+<div style={{fontSize:11,color:C.text}}>
+<div style={{display:"flex",justifyContent:"space-between",padding:"9px 0",borderBottom:`1px solid ${C.border}`}}><span>Total Invoices</span><span style={{color:C.neon}}>{invoices.length}</span></div>
+<div style={{display:"flex",justifyContent:"space-between",padding:"9px 0",borderBottom:`1px solid ${C.border}`}}><span>Taxable Value</span><span style={{color:C.neon}}>{fmt(invoices.reduce((s,i)=>s+i.amount,0))}</span></div>
+<div style={{display:"flex",justifyContent:"space-between",padding:"9px 0"}}><span>Total Tax</span><span style={{color:C.neon}}>{fmt(o)}</span></div></div>}</Panel></div>)}
+
+function CAPortal(){
+return(<div style={{display:"flex",flexDirection:"column",gap:12}}>
+<div className="grid3">
+<Metric label="CLIENTS MANAGED" value={0} animate={false} delta="onboard to begin" deltaColor={C.label}/>
+<Metric label="COMMISSION · 30%" value={0} deltaColor={C.green} sub="/month"/>
+<Metric label="COMPLIANCE RATE" value="—" animate={false}/></div>
+<Panel title="▸ CA PARTNERSHIP PROGRAM"><div style={{fontSize:12,color:C.text,lineHeight:1.8}}>
+<div style={{marginBottom:12,color:C.neon,fontWeight:700,letterSpacing:1}}>WHY PARTNER WITH LEDGR</div>
+{["30% recurring commission on every client","Free master dashboard — manage all clients","Co-branded invoices with your firm logo","Your clients pay ₹999/mo — you earn ₹300/mo each"].map((f,i)=>(<div key={i} style={{display:"flex",gap:10,alignItems:"flex-start",padding:"5px 0"}}><span style={{color:C.neon,textShadow:glow(C.neon,4)}}>▸</span><span>{f}</span></div>))}
+<button style={{...btnPrimary,marginTop:16}}>+ ONBOARD FIRST CLIENT</button></div></Panel></div>)}
+
+function Analytics({invoices}){
+const rev=useMemo(()=>{const m={};invoices.forEach(i=>{const k=MONTHS[new Date(i.date).getMonth()];m[k]=(m[k]||0)+i.amount+i.gst});return MONTHS.map(k=>({m:k,v:Math.round((m[k]||0)/1000)}))},[invoices]);
+return(<Panel title="▸ REVENUE TREND (₹ THOUSANDS)">{invoices.length===0?<Empty msg="Analytics populate as invoices accumulate."/>:<BarChartLite data={rev}/>}</Panel>)}
+
+function Settings(){
+return(<div className="grid2">
+<Panel title="▸ BUSINESS PROFILE">
+{[["Business Name",""],["GSTIN",""],["Invoice Prefix","INV-"],["Address",""]].map((x,i)=>(<div key={i} style={{marginBottom:12}}>
+<div style={{fontSize:9,color:C.label,letterSpacing:1,marginBottom:4}}>{x[0].toUpperCase()}</div>
+<input defaultValue={x[1]} placeholder={"Enter "+x[0].toLowerCase()} style={input}/></div>))}
+<button style={btnPrimary}>SAVE PROFILE</button></Panel>
+<Panel title="▸ SUBSCRIPTION">
+<div style={{display:"flex",alignItems:"baseline",gap:8,marginBottom:14}}>
+<span style={{fontSize:32,fontWeight:700,color:C.neon,textShadow:glow(C.neon,10)}}>₹999</span>
+<span style={{fontSize:12,color:C.label,letterSpacing:1}}>/MONTH · PRO</span></div>
+<div style={{fontSize:11,color:C.text,lineHeight:1.8}}>Unlimited invoices · CA portal · GST exports · All modules</div>
+<button style={{...btnPrimary,width:"100%",marginTop:16}}>MANAGE BILLING →</button></Panel></div>)}
+
+function InvoiceBuilder({onClose,onSave,seq,isMobile}){
+const[client,setClient]=useState("");
+const[gstin,setGstin]=useState("");
+const[items,setItems]=useState([{id:1,desc:"",hsn:"",qty:1,rate:"",gst:18}]);
+const sub=items.reduce((s,it)=>s+Number(it.qty)*Number(it.rate||0),0);
+const gst=items.reduce((s,it)=>s+(Number(it.qty)*Number(it.rate||0)*Number(it.gst))/100,0);
+const setItem=(id,k,v)=>setItems(items.map(it=>it.id===id?{...it,[k]:v}:it));
+const save=st=>{if(!client||sub===0){alert("Enter client name and at least one item with a rate.");return}onSave({id:"INV-"+String(seq).padStart(6,"0"),client,clientGstin:gstin,amount:sub,gst,status:st,date:new Date().toISOString().split("T")[0]});onClose()};
+return(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.9)",display:"flex",alignItems:isMobile?"flex-start":"center",justifyContent:"center",zIndex:1000,backdropFilter:"blur(5px)",padding:isMobile?0:16,overflow:"auto"}}>
+<div className="modal-in" style={{background:C.bg,border:`1px solid ${C.neon}`,boxShadow:glow(C.neon,18),width:720,maxWidth:"100%",minHeight:isMobile?"100vh":"auto"}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",background:C.neon,color:"#000",position:"sticky",top:0}}>
+<span style={{fontWeight:800,letterSpacing:1.5,fontSize:13}}>NEW INVOICE</span>
+<button onClick={onClose} style={{background:"none",border:"none",fontSize:20,cursor:"pointer",color:"#000"}}>✕</button></div>
+<div style={{padding:16}}>
+<div className="grid2" style={{marginBottom:14}}>
+<input placeholder="Client name *" style={input} value={client} onChange={e=>setClient(e.target.value)}/>
+<input placeholder="Client GSTIN" style={input} value={gstin} onChange={e=>setGstin(e.target.value.toUpperCase())} maxLength={15}/></div>
+<div style={{fontSize:9,color:C.neon,letterSpacing:1.5,marginBottom:8}}>▸ LINE ITEMS</div>
+{items.map(it=>(<div key={it.id} style={{display:"flex",gap:5,marginBottom:6,flexWrap:"wrap"}}>
+<input placeholder="Description" style={{...input,flex:"1 1 100%",minWidth:0}} value={it.desc} onChange={e=>setItem(it.id,"desc",e.target.value)}/>
+<input placeholder="HSN" style={{...input,flex:1,minWidth:0}} value={it.hsn} onChange={e=>setItem(it.id,"hsn",e.target.value)}/>
+<input placeholder="Qty" type="number" style={{...input,flex:1,minWidth:0}} value={it.qty} onChange={e=>setItem(it.id,"qty",e.target.value)}/>
+<input placeholder="Rate" type="number" style={{...input,flex:1,minWidth:0}} value={it.rate} onChange={e=>setItem(it.id,"rate",e.target.value)}/>
+<select style={{...input,flex:1,minWidth:0}} value={it.gst} onChange={e=>setItem(it.id,"gst",Number(e.target.value))}>{[0,5,12,18,28].map(r=><option key={r} value={r}>{r}%</option>)}</select></div>))}
+<button onClick={()=>setItems([...items,{id:Date.now(),desc:"",hsn:"",qty:1,rate:"",gst:18}])} style={{...chip,marginTop:6}}>+ ADD ITEM</button>
+<div style={{marginTop:18,padding:14,background:C.panel,border:`1px solid ${C.border}`}}>
+<div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.label,padding:"4px 0"}}><span>TAXABLE</span><span>{fmt(sub)}</span></div>
+<div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.label,padding:"4px 0"}}><span>CGST + SGST</span><span>{fmt(gst)}</span></div>
+<div style={{display:"flex",justifyContent:"space-between",fontSize:15,color:C.neon,fontWeight:700,padding:"8px 0 0",borderTop:`1px solid ${C.neon}`,marginTop:6,textShadow:glow(C.neon,5)}}><span>GRAND TOTAL</span><span>{fmt(sub+gst)}</span></div></div>
+<div style={{display:"flex",gap:10,marginTop:16,flexWrap:"wrap"}}>
+<button onClick={()=>save("PENDING")} style={{...btnPrimary,flex:1,minWidth:130}}>SAVE AS PENDING</button>
+<button onClick={()=>save("PAID")} style={{...btnPrimary,flex:1,minWidth:130,background:C.green}}>SAVE AS PAID</button></div></div></div></div>)}
+
+const btnPrimary={background:C.neon,color:"#000",border:"none",fontFamily:"inherit",fontWeight:700,fontSize:11,letterSpacing:1,padding:"9px 14px",cursor:"pointer",boxShadow:glow(C.neon,5)};
+const btnSm={background:"none",border:`1px solid ${C.neonDim}`,color:C.neon,fontFamily:"inherit",fontSize:10,letterSpacing:1,padding:"4px 9px",cursor:"pointer"};
+const chip={background:C.bg3,border:`1px solid ${C.border2}`,color:C.label,fontFamily:"inherit",fontSize:10,letterSpacing:1,padding:"5px 11px",cursor:"pointer"};
+const chipActive={background:C.neon,color:"#000",borderColor:C.neon,fontWeight:700};
+const input={background:C.bg3,border:`1px solid ${C.border2}`,color:"#fff",fontFamily:"inherit",fontSize:14,padding:"9px 10px",outline:"none",width:"100%"};
+const tbl={width:"100%",borderCollapse:"collapse",fontSize:11,minWidth:460};
+const trHead={color:C.dim,fontSize:9,letterSpacing:1,textAlign:"left",borderBottom:`1px solid ${C.border2}`};
+const th={padding:"8px 6px",fontWeight:600};
+const thR={...th,textAlign:"right"};
+const thC={...th,textAlign:"center"};
+const td={padding:"10px 6px",color:C.text};
+const tdR={...td,textAlign:"right"};
+const tdC={...td,textAlign:"center"};
+
+function LEDGR(){
+const[active,setActive]=useState("dashboard");
+const[showB,setShowB]=useState(false);
+const[invoices,setInvoices]=useState([]);
+const isMobile=useIsMobile();
+const seq=1001+invoices.length;
+const add=inv=>setInvoices(p=>[inv,...p]);
+const cycle=id=>setInvoices(p=>p.map(i=>i.id!==id?i:{...i,status:{PENDING:"PAID",PAID:"OVERDUE",OVERDUE:"PENDING"}[i.status]||"PENDING"}));
+const render=()=>{switch(active){
+case"dashboard":return<Dashboard invoices={invoices} onCreate={()=>setShowB(true)}/>;
+case"invoices":return<Invoices invoices={invoices} onCreate={()=>setShowB(true)} onStatus={cycle}/>;
+case"clients":return<Clients invoices={invoices}/>;
+case"payments":return<Payments invoices={invoices}/>;
+case"gst":return<GSTDesk invoices={invoices}/>;
+case"ca":return<CAPortal/>;
+case"analytics":return<Analytics invoices={invoices}/>;
+case"settings":return<Settings/>;
+default:return<Dashboard invoices={invoices} onCreate={()=>setShowB(true)}/>}};
+const NavBtn=({m})=>(<button onClick={()=>setActive(m.id)} style={{display:"flex",alignItems:"center",gap:8,padding:isMobile?"8px 14px":"11px 16px",width:isMobile?"auto":"100%",background:active===m.id?C.bg2:"transparent",border:"none",borderLeft:isMobile?"none":(active===m.id?`2px solid ${C.neon}`:"2px solid transparent"),borderBottom:isMobile?(active===m.id?`2px solid ${C.neon}`:"2px solid transparent"):"none",color:active===m.id?C.neon:C.label,fontFamily:"inherit",fontSize:11,letterSpacing:1,cursor:"pointer",textAlign:"left",whiteSpace:"nowrap",textShadow:active===m.id?glow(C.neon,4):"none"}}><span style={{fontSize:13}}>{m.icon}</span>{m.label}</button>);
+return(<div style={{background:C.bg,color:C.text,minHeight:"100vh",fontSize:12}}>
+<StatusBar mrr={0}/>
+<Ticker/>
+{isMobile&&<div style={{display:"flex",overflowX:"auto",background:"#000",borderBottom:`1px solid ${C.border}`,WebkitOverflowScrolling:"touch"}}>{MODULES.map(m=><NavBtn key={m.id} m={m}/>)}</div>}
+<div style={{display:"flex",minHeight:"calc(100vh - 70px)"}}>
+{!isMobile&&<div style={{width:180,background:"#000",borderRight:`1px solid ${C.border}`,padding:"12px 0",flexShrink:0}}>
+{MODULES.map(m=><NavBtn key={m.id} m={m}/>)}
+<div style={{padding:"16px",marginTop:20,borderTop:`1px solid ${C.border}`}}>
+<div style={{fontSize:9,color:C.dim,letterSpacing:1,marginBottom:6}}>SUBSCRIPTION</div>
+<div style={{fontSize:13,color:C.neon,fontWeight:700,textShadow:glow(C.neon,4)}}>PRO · ₹999/mo</div>
+<div style={{fontSize:9,color:C.green,marginTop:4}}>● Active</div></div></div>}
+<div style={{flex:1,padding:12,overflow:"hidden",minWidth:0}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
+<h1 style={{fontSize:13,fontWeight:700,letterSpacing:1.5,color:"#fff"}}>{MODULES.find(m=>m.id===active).label} <span style={{color:C.neon,textShadow:glow(C.neon,6)}}>TERMINAL</span></h1>
+<span style={{fontSize:9,color:C.dim,letterSpacing:1}}>● LIVE</span></div>
+{render()}</div></div>
+{showB&&<InvoiceBuilder onClose={()=>setShowB(false)} onSave={add} seq={seq} isMobile={isMobile}/>}</div>)}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<LEDGR/>);
+</script>
+</body>
+</html>

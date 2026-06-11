@@ -62,6 +62,14 @@ const FREE_INVOICES=3;            // free invoices before wall hits
 const WHATSAPP="917988474991";    // unlock support
 // Unlock codes — change these anytime, give to customers after payment:
 const CODES=["LEDGR2026","LEXCONV-PRO","CA-PARTNER"];
+const GOD_CODE="RAJ-SOVEREIGN-01";   // your private master key — never share
+// AUTO-UNLOCK: when Razorpay redirects back after payment, URL contains razorpay_payment_id
+(function(){try{
+const q=new URLSearchParams(window.location.search);
+const pid=q.get("razorpay_payment_id");
+if(pid&&/^pay_[A-Za-z0-9]{8,}$/.test(pid)){localStorage.setItem("ledgr_pro","1");localStorage.setItem("ledgr_payid",pid);
+window.history.replaceState({},"",window.location.pathname);}
+}catch(e){}})();
 // ════════════════════════════════════════════════════════════════
 
 function useIsMobile(){const[m,setM]=useState(false);useEffect(()=>{const c=()=>setM(window.innerWidth<768);c();window.addEventListener("resize",c);return()=>window.removeEventListener("resize",c)},[]);return m}
@@ -124,7 +132,8 @@ function Paywall({onUnlock}){
 const[code,setCode]=useState("");
 const[err,setErr]=useState(false);
 const tryCode=()=>{
-if(CODES.includes(code.trim().toUpperCase())){localStorage.setItem("ledgr_pro","1");onUnlock()}
+const cc=code.trim().toUpperCase();
+if(CODES.includes(cc)||cc===GOD_CODE){localStorage.setItem("ledgr_pro","1");onUnlock()}
 else{setErr(true);setTimeout(()=>setErr(false),2000)}};
 return(<div style={{position:"fixed",inset:0,background:"rgba(0,5,3,0.6)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:2000,backdropFilter:"blur(2px)",padding:16,overflow:"auto"}}>
 <div className="modal-in" style={{background:"#000",border:`1px solid ${C.neon}`,boxShadow:glow(C.neon,24),width:420,maxWidth:"100%",textAlign:"center",padding:"36px 28px"}}>
@@ -138,7 +147,7 @@ return(<div style={{position:"fixed",inset:0,background:"rgba(0,5,3,0.6)",displa
 <div style={{position:"absolute",top:-9,right:12,background:C.neon,color:"#000",fontSize:8,fontWeight:800,letterSpacing:1,padding:"2px 8px"}}>SAVE ₹1,989</div>
 <div style={{fontSize:28,fontWeight:800,color:C.neon,animation:"priceFlash 1.6s ease-in-out infinite"}}>₹9,999<span style={{fontSize:12,color:C.label}}>/year</span></div>
 <div style={{fontSize:10,color:C.label,letterSpacing:1,marginTop:4}}>BEST VALUE · 2 MONTHS FREE</div></a></div>
-<div style={{fontSize:9,color:C.dim,letterSpacing:1,marginBottom:16,lineHeight:1.6}}>AFTER PAYMENT YOU RECEIVE AN UNLOCK CODE ON WHATSAPP WITHIN MINUTES</div>
+<div style={{fontSize:9,color:C.dim,letterSpacing:1,marginBottom:16,lineHeight:1.6}}>APP UNLOCKS AUTOMATICALLY AFTER PAYMENT · IF NOT, ENTER CODE FROM WHATSAPP</div>
 <div style={{display:"flex",gap:8,marginBottom:12}}>
 <input placeholder="HAVE A CODE? ENTER IT" value={code} onChange={e=>setCode(e.target.value)} onKeyDown={e=>e.key==="Enter"&&tryCode()} style={{...input,textAlign:"center",letterSpacing:2,borderColor:err?C.red:C.border2}}/>
 <button onClick={tryCode} style={{...btnPrimary,whiteSpace:"nowrap"}}>UNLOCK</button></div>
@@ -339,4 +348,5 @@ ReactDOM.createRoot(document.getElementById("root")).render(<LEDGR/>);
 </script>
 </body>
 </html>
+
 

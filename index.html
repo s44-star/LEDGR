@@ -15,6 +15,8 @@ body{background:#020503;font-family:'IBM Plex Mono',monospace}
 @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 @keyframes modalIn{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:scale(1)}}
 @keyframes grow{from{height:0}to{}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes priceFlash{0%,100%{text-shadow:0 0 12px #00FF88,0 0 30px rgba(0,255,136,.6)}50%{text-shadow:0 0 24px #00FF88,0 0 60px rgba(0,255,136,.9)}}
 .panel-in{animation:fadeUp .35s ease both}
 .modal-in{animation:modalIn .2s ease both}
 .row-hover{transition:background .15s}
@@ -29,6 +31,7 @@ button:active{filter:brightness(1.2)}
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
 .grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
 .bar{animation:grow .6s ease both}
+.blurred{filter:blur(7px);pointer-events:none;user-select:none}
 @media(max-width:768px){
 .grid4{grid-template-columns:1fr 1fr}
 .grid3{grid-template-columns:1fr}
@@ -44,7 +47,6 @@ button:active{filter:brightness(1.2)}
     <div style="font-size:9px;color:#4a6b56;letter-spacing:2px;margin-top:20px;animation:pulse 1.2s ease-in-out infinite">INITIALIZING TERMINAL...</div>
   </div>
 </div>
-<style>@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}</style>
 <script type="text/babel">
 const {useState,useEffect,useMemo}=React;
 const C={bg:"#020503",bg2:"#061008",bg3:"#0a160d",panel:"#07110a",border:"#11281a",border2:"#1d3d29",neon:"#00FF88",neonDim:"#00b35f",green:"#00FF88",red:"#FF4D6D",yellow:"#FFE600",blue:"#38BDF8",text:"#bfe8cf",dim:"#4a6b56",label:"#6f9a80"};
@@ -53,16 +55,26 @@ const fmt=n=>"₹"+Number(n||0).toLocaleString("en-IN");
 const MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const MODULES=[{id:"dashboard",label:"COMMAND",icon:"▣"},{id:"invoices",label:"INVOICES",icon:"▤"},{id:"clients",label:"CLIENTS",icon:"▦"},{id:"payments",label:"PAYMENTS",icon:"▥"},{id:"gst",label:"GST DESK",icon:"▧"},{id:"ca",label:"CA PORTAL",icon:"▨"},{id:"analytics",label:"ANALYTICS",icon:"▩"},{id:"settings",label:"CONFIG",icon:"⚙"}];
 
+// ══ PAYWALL CONFIG ══════════════════════════════════════════════
+const PAY_MONTHLY="https://rzp.io/rzp/hRURAFc0";   // ₹999/mo
+const PAY_YEARLY="https://rzp.io/rzp/riKwI5km";    // ₹9,999/yr
+const FREE_INVOICES=3;            // free invoices before wall hits
+const WHATSAPP="917988474991";    // unlock support
+// Unlock codes — change these anytime, give to customers after payment:
+const CODES=["LEDGR2026","LEXCONV-PRO","CA-PARTNER"];
+// ════════════════════════════════════════════════════════════════
+
 function useIsMobile(){const[m,setM]=useState(false);useEffect(()=>{const c=()=>setM(window.innerWidth<768);c();window.addEventListener("resize",c);return()=>window.removeEventListener("resize",c)},[]);return m}
 function useCountUp(t,dur=900){const[v,setV]=useState(0);useEffect(()=>{let raf,s;const tick=x=>{if(!s)s=x;const p=Math.min((x-s)/dur,1);setV(t*(1-Math.pow(1-p,3)));if(p<1)raf=requestAnimationFrame(tick)};raf=requestAnimationFrame(tick);return()=>cancelAnimationFrame(raf)},[t,dur]);return v}
 
-function StatusBar({mrr}){
+function StatusBar({mrr,pro}){
 const[t,setT]=useState(null);
 useEffect(()=>{setT(new Date());const i=setInterval(()=>setT(new Date()),1000);return()=>clearInterval(i)},[]);
 return(<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:"#000",borderBottom:`1px solid ${C.neon}`,boxShadow:glow(C.neon,6),padding:"7px 12px",position:"sticky",top:0,zIndex:100}}>
 <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
 <span style={{fontSize:15,fontWeight:800,letterSpacing:2,color:"#fff",textShadow:glow(C.neon,8),whiteSpace:"nowrap"}}>LEDGR<span style={{color:C.neon}}>·</span></span>
-<span style={{fontSize:8,color:C.label,whiteSpace:"nowrap"}}>by <span style={{color:C.neon}}>LexConv</span></span></div>
+<span style={{fontSize:8,color:C.label,whiteSpace:"nowrap"}}>by <span style={{color:C.neon}}>LexConv</span></span>
+{pro&&<span style={{fontSize:8,color:C.green,border:`1px solid ${C.green}`,padding:"1px 6px",letterSpacing:1,fontWeight:700}}>PRO</span>}</div>
 <div style={{display:"flex",alignItems:"center",gap:8}}>
 <span style={{fontSize:11,color:C.neon,fontWeight:700,textShadow:glow(C.neon,5),whiteSpace:"nowrap"}}>{fmt(mrr)}</span>
 <span style={{color:C.dim}}>|</span>
@@ -100,13 +112,39 @@ const Empty=({msg,cta,onCta})=>(<div style={{padding:"40px 16px",textAlign:"cent
 
 const Scroll=({children})=><div style={{overflowX:"auto",WebkitOverflowScrolling:"touch"}}>{children}</div>;
 
-// SIMPLE BAR CHART (no library)
 function BarChartLite({data}){
 const max=Math.max(...data.map(d=>d.v),1);
 return(<div style={{display:"flex",alignItems:"flex-end",gap:4,height:200,padding:"10px 0",borderBottom:`1px solid ${C.border2}`}}>
 {data.map((d,i)=>(<div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4,height:"100%",justifyContent:"flex-end"}}>
 <div className="bar" style={{width:"70%",height:`${(d.v/max)*100}%`,minHeight:d.v>0?3:0,background:`linear-gradient(180deg,${C.neon},${C.neonDim})`,boxShadow:d.v>0?glow(C.neon,4):"none",borderRadius:"2px 2px 0 0",animationDelay:`${i*40}ms`}}/>
 <span style={{fontSize:8,color:C.label}}>{d.m}</span></div>))}</div>)}
+
+// ══ PAYWALL ══════════════════════════════════════════════════════
+function Paywall({onUnlock}){
+const[code,setCode]=useState("");
+const[err,setErr]=useState(false);
+const tryCode=()=>{
+if(CODES.includes(code.trim().toUpperCase())){localStorage.setItem("ledgr_pro","1");onUnlock()}
+else{setErr(true);setTimeout(()=>setErr(false),2000)}};
+return(<div style={{position:"fixed",inset:0,background:"rgba(0,5,3,0.6)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:2000,backdropFilter:"blur(2px)",padding:16,overflow:"auto"}}>
+<div className="modal-in" style={{background:"#000",border:`1px solid ${C.neon}`,boxShadow:glow(C.neon,24),width:420,maxWidth:"100%",textAlign:"center",padding:"36px 28px"}}>
+<div style={{fontSize:10,color:C.label,letterSpacing:3,marginBottom:8}}>FREE LIMIT REACHED</div>
+<div style={{fontSize:20,fontWeight:800,color:"#fff",letterSpacing:1,marginBottom:24}}>UNLOCK FULL TERMINAL</div>
+<div style={{display:"flex",flexDirection:"column",gap:12,marginBottom:24}}>
+<a href={PAY_MONTHLY} target="_blank" style={{textDecoration:"none",background:C.bg3,border:`1px solid ${C.border2}`,padding:"16px",display:"block",transition:"border-color .2s"}}>
+<div style={{fontSize:28,fontWeight:800,color:C.neon,animation:"priceFlash 1.6s ease-in-out infinite"}}>₹999<span style={{fontSize:12,color:C.label}}>/month</span></div>
+<div style={{fontSize:10,color:C.label,letterSpacing:1,marginTop:4}}>UNLIMITED INVOICES · ALL MODULES</div></a>
+<a href={PAY_YEARLY} target="_blank" style={{textDecoration:"none",background:C.bg3,border:`1px solid ${C.neon}`,padding:"16px",display:"block",position:"relative"}}>
+<div style={{position:"absolute",top:-9,right:12,background:C.neon,color:"#000",fontSize:8,fontWeight:800,letterSpacing:1,padding:"2px 8px"}}>SAVE ₹1,989</div>
+<div style={{fontSize:28,fontWeight:800,color:C.neon,animation:"priceFlash 1.6s ease-in-out infinite"}}>₹9,999<span style={{fontSize:12,color:C.label}}>/year</span></div>
+<div style={{fontSize:10,color:C.label,letterSpacing:1,marginTop:4}}>BEST VALUE · 2 MONTHS FREE</div></a></div>
+<div style={{fontSize:9,color:C.dim,letterSpacing:1,marginBottom:16,lineHeight:1.6}}>AFTER PAYMENT YOU RECEIVE AN UNLOCK CODE ON WHATSAPP WITHIN MINUTES</div>
+<div style={{display:"flex",gap:8,marginBottom:12}}>
+<input placeholder="HAVE A CODE? ENTER IT" value={code} onChange={e=>setCode(e.target.value)} onKeyDown={e=>e.key==="Enter"&&tryCode()} style={{...input,textAlign:"center",letterSpacing:2,borderColor:err?C.red:C.border2}}/>
+<button onClick={tryCode} style={{...btnPrimary,whiteSpace:"nowrap"}}>UNLOCK</button></div>
+{err&&<div style={{fontSize:10,color:C.red,marginBottom:8}}>INVALID CODE — CHECK AND TRY AGAIN</div>}
+<a href={`https://wa.me/${WHATSAPP}?text=Hi, I paid for LEDGR. Please send my unlock code.`} target="_blank" style={{fontSize:10,color:C.label,letterSpacing:1,textDecoration:"underline"}}>PAID BUT NO CODE? WHATSAPP US →</a>
+</div></div>)}
 
 function Dashboard({invoices,onCreate}){
 const t=useMemo(()=>({invoiced:invoices.reduce((s,i)=>s+i.amount+i.gst,0),collected:invoices.filter(i=>i.status==="PAID").reduce((s,i)=>s+i.amount+i.gst,0),outstanding:invoices.filter(i=>i.status==="PENDING").reduce((s,i)=>s+i.amount+i.gst,0),overdue:invoices.filter(i=>i.status==="OVERDUE").reduce((s,i)=>s+i.amount+i.gst,0)}),[invoices]);
@@ -159,7 +197,7 @@ return(<Panel title="▸ COLLECTION QUEUE">
 <td style={{...td,whiteSpace:"nowrap"}}>{inv.client}</td>
 <td style={tdR}>{fmt(inv.amount+inv.gst)}</td>
 <td style={tdC}><StatusTag s={inv.status}/></td>
-<td style={tdC}><button style={{...btnSm,fontSize:9}}>⟶ REMIND</button></td></tr>))}</tbody></table></Scroll>}</Panel>)}
+<td style={tdC}><a href={`https://wa.me/?text=Reminder: Invoice ${inv.id} of ${fmt(inv.amount+inv.gst)} is due. Please arrange payment.`} target="_blank" style={{...btnSm,fontSize:9,textDecoration:"none"}}>⟶ REMIND</a></td></tr>))}</tbody></table></Scroll>}</Panel>)}
 
 function GSTDesk({invoices}){
 const o=invoices.reduce((s,i)=>s+i.gst,0);
@@ -168,7 +206,7 @@ return(<div style={{display:"flex",flexDirection:"column",gap:12}}>
 <Metric label="OUTPUT TAX" value={o} deltaColor={C.green} delta={invoices.length?"GSTR-1 ready":""}/>
 <Metric label="INPUT TAX CREDIT" value={0} deltaColor={C.blue} delta="wire purchases"/>
 <Metric label="NET LIABILITY" value={o} deltaColor={C.yellow} delta="due 20th"/></div>
-<Panel title="▸ GSTR-1 SUMMARY" action={invoices.length?<button style={btnSm}>↓ EXPORT</button>:null}>
+<Panel title="▸ GSTR-1 SUMMARY">
 {invoices.length===0?<Empty msg="GSTR-1 summary builds from your invoices."/>:
 <div style={{fontSize:11,color:C.text}}>
 <div style={{display:"flex",justifyContent:"space-between",padding:"9px 0",borderBottom:`1px solid ${C.border}`}}><span>Total Invoices</span><span style={{color:C.neon}}>{invoices.length}</span></div>
@@ -184,13 +222,13 @@ return(<div style={{display:"flex",flexDirection:"column",gap:12}}>
 <Panel title="▸ CA PARTNERSHIP PROGRAM"><div style={{fontSize:12,color:C.text,lineHeight:1.8}}>
 <div style={{marginBottom:12,color:C.neon,fontWeight:700,letterSpacing:1}}>WHY PARTNER WITH LEDGR</div>
 {["30% recurring commission on every client","Free master dashboard — manage all clients","Co-branded invoices with your firm logo","Your clients pay ₹999/mo — you earn ₹300/mo each"].map((f,i)=>(<div key={i} style={{display:"flex",gap:10,alignItems:"flex-start",padding:"5px 0"}}><span style={{color:C.neon,textShadow:glow(C.neon,4)}}>▸</span><span>{f}</span></div>))}
-<button style={{...btnPrimary,marginTop:16}}>+ ONBOARD FIRST CLIENT</button></div></Panel></div>)}
+<a href={`https://wa.me/${WHATSAPP}?text=Hi, I'm a CA interested in the LEDGR partnership program.`} target="_blank" style={{...btnPrimary,marginTop:16,display:"inline-block",textDecoration:"none"}}>+ BECOME A PARTNER</a></div></Panel></div>)}
 
 function Analytics({invoices}){
 const rev=useMemo(()=>{const m={};invoices.forEach(i=>{const k=MONTHS[new Date(i.date).getMonth()];m[k]=(m[k]||0)+i.amount+i.gst});return MONTHS.map(k=>({m:k,v:Math.round((m[k]||0)/1000)}))},[invoices]);
 return(<Panel title="▸ REVENUE TREND (₹ THOUSANDS)">{invoices.length===0?<Empty msg="Analytics populate as invoices accumulate."/>:<BarChartLite data={rev}/>}</Panel>)}
 
-function Settings(){
+function Settings({pro}){
 return(<div className="grid2">
 <Panel title="▸ BUSINESS PROFILE">
 {[["Business Name",""],["GSTIN",""],["Invoice Prefix","INV-"],["Address",""]].map((x,i)=>(<div key={i} style={{marginBottom:12}}>
@@ -198,11 +236,15 @@ return(<div className="grid2">
 <input defaultValue={x[1]} placeholder={"Enter "+x[0].toLowerCase()} style={input}/></div>))}
 <button style={btnPrimary}>SAVE PROFILE</button></Panel>
 <Panel title="▸ SUBSCRIPTION">
+{pro?(<div>
+<div style={{fontSize:14,color:C.green,fontWeight:700,marginBottom:8}}>● PRO ACTIVE</div>
+<div style={{fontSize:11,color:C.text,lineHeight:1.8}}>Unlimited invoices · CA portal · GST exports · All modules unlocked</div></div>):(<div>
 <div style={{display:"flex",alignItems:"baseline",gap:8,marginBottom:14}}>
 <span style={{fontSize:32,fontWeight:700,color:C.neon,textShadow:glow(C.neon,10)}}>₹999</span>
-<span style={{fontSize:12,color:C.label,letterSpacing:1}}>/MONTH · PRO</span></div>
-<div style={{fontSize:11,color:C.text,lineHeight:1.8}}>Unlimited invoices · CA portal · GST exports · All modules</div>
-<button style={{...btnPrimary,width:"100%",marginTop:16}}>MANAGE BILLING →</button></Panel></div>)}
+<span style={{fontSize:12,color:C.label,letterSpacing:1}}>/MONTH</span></div>
+<div style={{fontSize:11,color:C.text,marginBottom:8}}>or ₹9,999/year — save ₹1,989</div>
+<div style={{fontSize:11,color:C.text,lineHeight:1.8,marginBottom:16}}>Unlimited invoices · CA portal · GST exports · All modules</div>
+<a href={PAY_YEARLY} target="_blank" style={{...btnPrimary,width:"100%",display:"block",textAlign:"center",textDecoration:"none"}}>UPGRADE NOW →</a></div>)}</Panel></div>)}
 
 function InvoiceBuilder({onClose,onSave,seq,isMobile}){
 const[client,setClient]=useState("");
@@ -254,24 +296,28 @@ const tdC={...td,textAlign:"center"};
 function LEDGR(){
 const[active,setActive]=useState("dashboard");
 const[showB,setShowB]=useState(false);
-const[invoices,setInvoices]=useState([]);
+const[pro,setPro]=useState(()=>localStorage.getItem("ledgr_pro")==="1");
+const[invoices,setInvoices]=useState(()=>{try{return JSON.parse(localStorage.getItem("ledgr_inv")||"[]")}catch(e){return[]}});
 const isMobile=useIsMobile();
 const seq=1001+invoices.length;
+useEffect(()=>{localStorage.setItem("ledgr_inv",JSON.stringify(invoices))},[invoices]);
+const walled=!pro&&invoices.length>=FREE_INVOICES;
 const add=inv=>setInvoices(p=>[inv,...p]);
+const tryCreate=()=>{if(walled)return;setShowB(true)};
 const cycle=id=>setInvoices(p=>p.map(i=>i.id!==id?i:{...i,status:{PENDING:"PAID",PAID:"OVERDUE",OVERDUE:"PENDING"}[i.status]||"PENDING"}));
 const render=()=>{switch(active){
-case"dashboard":return<Dashboard invoices={invoices} onCreate={()=>setShowB(true)}/>;
-case"invoices":return<Invoices invoices={invoices} onCreate={()=>setShowB(true)} onStatus={cycle}/>;
+case"dashboard":return<Dashboard invoices={invoices} onCreate={tryCreate}/>;
+case"invoices":return<Invoices invoices={invoices} onCreate={tryCreate} onStatus={cycle}/>;
 case"clients":return<Clients invoices={invoices}/>;
 case"payments":return<Payments invoices={invoices}/>;
 case"gst":return<GSTDesk invoices={invoices}/>;
 case"ca":return<CAPortal/>;
 case"analytics":return<Analytics invoices={invoices}/>;
-case"settings":return<Settings/>;
-default:return<Dashboard invoices={invoices} onCreate={()=>setShowB(true)}/>}};
+case"settings":return<Settings pro={pro}/>;
+default:return<Dashboard invoices={invoices} onCreate={tryCreate}/>}};
 const NavBtn=({m})=>(<button onClick={()=>setActive(m.id)} style={{display:"flex",alignItems:"center",gap:8,padding:isMobile?"8px 14px":"11px 16px",width:isMobile?"auto":"100%",background:active===m.id?C.bg2:"transparent",border:"none",borderLeft:isMobile?"none":(active===m.id?`2px solid ${C.neon}`:"2px solid transparent"),borderBottom:isMobile?(active===m.id?`2px solid ${C.neon}`:"2px solid transparent"):"none",color:active===m.id?C.neon:C.label,fontFamily:"inherit",fontSize:11,letterSpacing:1,cursor:"pointer",textAlign:"left",whiteSpace:"nowrap",textShadow:active===m.id?glow(C.neon,4):"none"}}><span style={{fontSize:13}}>{m.icon}</span>{m.label}</button>);
 return(<div style={{background:C.bg,color:C.text,minHeight:"100vh",fontSize:12}}>
-<StatusBar mrr={0}/>
+<StatusBar mrr={0} pro={pro}/>
 <Ticker/>
 {isMobile&&<div style={{display:"flex",overflowX:"auto",background:"#000",borderBottom:`1px solid ${C.border}`,WebkitOverflowScrolling:"touch"}}>{MODULES.map(m=><NavBtn key={m.id} m={m}/>)}</div>}
 <div style={{display:"flex",minHeight:"calc(100vh - 70px)"}}>
@@ -279,16 +325,18 @@ return(<div style={{background:C.bg,color:C.text,minHeight:"100vh",fontSize:12}}
 {MODULES.map(m=><NavBtn key={m.id} m={m}/>)}
 <div style={{padding:"16px",marginTop:20,borderTop:`1px solid ${C.border}`}}>
 <div style={{fontSize:9,color:C.dim,letterSpacing:1,marginBottom:6}}>SUBSCRIPTION</div>
-<div style={{fontSize:13,color:C.neon,fontWeight:700,textShadow:glow(C.neon,4)}}>PRO · ₹999/mo</div>
-<div style={{fontSize:9,color:C.green,marginTop:4}}>● Active</div></div></div>}
-<div style={{flex:1,padding:12,overflow:"hidden",minWidth:0}}>
+<div style={{fontSize:13,color:C.neon,fontWeight:700,textShadow:glow(C.neon,4)}}>{pro?"PRO ACTIVE":"FREE TRIAL"}</div>
+<div style={{fontSize:9,color:pro?C.green:C.yellow,marginTop:4}}>{pro?"● Unlimited":`● ${Math.max(0,FREE_INVOICES-invoices.length)} free invoices left`}</div></div></div>}
+<div style={{flex:1,padding:12,overflow:"hidden",minWidth:0}} className={walled?"blurred":""}>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
 <h1 style={{fontSize:13,fontWeight:700,letterSpacing:1.5,color:"#fff"}}>{MODULES.find(m=>m.id===active).label} <span style={{color:C.neon,textShadow:glow(C.neon,6)}}>TERMINAL</span></h1>
 <span style={{fontSize:9,color:C.dim,letterSpacing:1}}>● LIVE</span></div>
 {render()}</div></div>
-{showB&&<InvoiceBuilder onClose={()=>setShowB(false)} onSave={add} seq={seq} isMobile={isMobile}/>}</div>)}
+{walled&&<Paywall onUnlock={()=>setPro(true)}/>}
+{showB&&!walled&&<InvoiceBuilder onClose={()=>setShowB(false)} onSave={add} seq={seq} isMobile={isMobile}/>}</div>)}
 
 ReactDOM.createRoot(document.getElementById("root")).render(<LEDGR/>);
 </script>
 </body>
 </html>
+

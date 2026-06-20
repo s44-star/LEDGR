@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>LEDGR · powered by LexConv</title>
+<script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script>
+// Minimal Supabase client — auth + database REST only. No CDN needed.
+(function(){
+function mini(url,key){
+  const h={"Content-Type":"application/json","apikey":key,"Authorization":"Bearer "+key};
+  let _tok=key,_uid=null,_listeners=[];
+  const store={get:k=>localStorage.getItem(k),set:(k,v)=>localStorage.setItem(k,v),del:k=>localStorage.removeItem(k)};
+  const _load=()=>{try{const s=store.get("sb_session");return s?JSON.parse(s):null}catch(e){return null}};
+  const _save=s=>{if(s){store.set("sb_session",JSON.stringify(s));_tok=s.access_token;_uid=s.user?.id}else{store.del("sb_session");_tok=key;_uid=null}};
+  const _notify=s=>_listeners.forEach(fn=>fn("SIGNED_"+(s?"IN":"OUT"),s));
+  // restore session on init
+  const _init=_load();if(_init){_tok=_init.access_token;_uid=_init.user?.id}
+  const authH=()=>({"Content-Type":"application/json","apikey":key,"Authorization":"Bearer "+_tok});
+  const auth={
+    async signUp({email,password}){
+      const r=await fetch(url+"/auth/v1/signup",{method:"POST",headers:h,body:JSON.stringify({email,password})});
+      const d=await r.json();if(d.error)return{data:{},error:{message:d.msg||d.error_description||d.error}};
+      _save(d);_notify(d);return{data:{user:d.user,session:d.access_token?d:null},error:null};},
+    async signInWithPassword({email,password}){
+      const r=await fetch(url+"/auth/v1/token?grant_type=password",{method:"POST",headers:h,body:JSON.stringify({email,password})});
+      const d=await r.json();if(d.error)return{data:{},error:{message:d.error_description||d.error}};
+      _save(d);_notify(d);return{data:{user:d.user,session:d},error:null};},
+    async getUser(){
+      const s=_load();if(!s)return{data:{user:null}};
+      try{const r=await fetch(url+"/auth/v1/user",{headers:authH()});
+        if(!r.ok){_save(null);_notify(null);return{data:{user:null}}}
+        const d=await r.json();return{data:{user:d}}}catch(e){return{data:{user:null}}}},
+    async getSession(){const s=_load();return{data:{session:s}};},
+    async signOut(){
+      try{await fetch(url+"/auth/v1/logout",{method:"POST",headers:authH()})}catch(e){}
+      _save(null);_notify(null);return{error:null};},
+    onAuthStateChange(fn){_listeners.push(fn);return{data:{subscription:{unsubscribe:()=>{_listeners=_listeners.filter(f=>f!==fn)}}}};},
+  };
+  function from(table){
+    let _url=url+"/rest/v1/"+table,_params=[],_body=null,_method="GET",_hd={...authH(),"Prefer":"return=representation"};
+    const q={
+      select(cols){_params.push("select="+(cols||"*"));return q},
+      eq(col,val){_params.push(col+"=eq."+encodeURIComponent(val));return q},
+      order(col,{ascending=true}={}){_params.push("order="+col+"."+(ascending?"asc":"desc"));return q},
+      single(){_hd["Accept"]="application/vnd.pgrst.object+json";return q},
+      insert(data){_method="POST";_body=JSON.stringify(data);_hd["Prefer"]="return=representation";return q},
+      update(data){
+        _method="PATCH";_body=JSON.stringify(data);
+        return{eq:(col,val)=>{_params.push(col+"=eq."+encodeURIComponent(val));return q}};},
+      async then(res,rej){
+        try{
+          const full=_url+(_params.length?"?"+_params.join("&"):"");
+          const r=await fetch(full,{method:_method,headers:_hd,body:_body||undefined});
+          const ct=r.headers.get("content-type")||"";
+          const d=ct.includes("json")?await r.json():null;
+          if(!r.ok)return res({data:null,error:{message:JSON.stringify(d)}});
+          return res({data:d,error:null});
+        }catch(e){return res({data:null,error:{message:e.message}})}
+      }
+    };return q;
+  }
+  return{auth,from};
+}
+window.miniSB=mini;
+})();
+
+</script>
+<script src="https://unpkg.com/@babel/standalone@7.23.10/babel.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0A0A0C;font-family:'IBM Plex Mono',monospace;-webkit-font-smoothing:antialiased}
+@keyframes tk{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+@keyframes modalIn{from{opacity:0;transform:scale(.985)}to{opacity:1;transform:scale(1)}}
+@keyframes grow{from{height:0}to{}}
+@keyframes goldline{from{width:0}to{width:100%}}
+@keyframes softpulse{0%,100%{opacity:1}50%{opacity:.55}}
+.panel-in{animation:fadeUp .4s ease both}
+.modal-in{animation:modalIn .25s ease both}
+.row-hover{transition:background .15s}
+.row-hover:hover{background:#101014}
+input::placeholder{color:#4a4a52}
+select option{background:#141418;color:#EDEDF0}
+button{transition:opacity .15s}
+button:active{opacity:.75}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:#0A0A0C}
+::-webkit-scrollbar-thumb{background:#26262c}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.bar{animation:grow .7s cubic-bezier(.22,.8,.36,1) both}
+.blurred{filter:blur(8px);pointer-events:none;user-select:none}
+.goldline{animation:goldline .8s ease both}
+@media(max-width:768px){
+.grid4{grid-template-columns:1fr 1fr}
+.grid3{grid-template-columns:1fr}
+.grid2{grid-template-columns:1fr}
+}
+</style>
+<script>window.onerror=function(m){var r=document.getElementById('root');if(r)r.innerHTML='<div style="background:#0A0A0C;color:#FF6B6B;font-family:monospace;font-size:12px;padding:24px;min-height:100vh">ERROR: '+m+'</div>';return false};</script>
+</head>
+<body>
+<div id="root">
+  <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#0A0A0C;font-family:'IBM Plex Mono',monospace">
+    <div style="font-size:26px;font-weight:600;letter-spacing:6px;color:#EDEDF0">LEDGR<span style="color:#C9A227">·</span></div>
+    <div style="font-size:9px;color:#6a6a72;letter-spacing:3px;margin-top:10px">POWERED BY <span style="color:#C9A227">LEXCONV</span></div>
+    <div style="width:120px;height:1px;background:#1C1C20;margin-top:24px;position:relative;overflow:hidden"><div style="position:absolute;left:0;top:0;height:1px;width:40%;background:#C9A227;animation:ldr 1.2s ease-in-out infinite"></div></div>
+  </div>
+</div>
+<style>@keyframes ldr{0%{left:-40%}100%{left:100%}}</style>
+<script type="text/babel">
+const {useState,useEffect,useMemo,useRef}=React;
+const SB_URL="https://elkbsmqnlsicgdvfswaa.supabase.co";
+const SB_KEY="sb_publishable_NLXHaN95TJw2XS6PQHMZTQ_rQdGiBFE";
+const sb=window.miniSB(SB_URL,SB_KEY);
+
+// ═══ THEME · PRIVATE BANK ═══════════════════════════════════════
+const C={bg:"#0A0A0C",bg2:"#101014",bg3:"#141418",panel:"#0E0E11",
+border:"#1C1C20",border2:"#26262C",
+gold:"#C9A227",goldSoft:"#A8893A",
+text:"#D8D8DC",white:"#EDEDF0",dim:"#4A4A52",label:"#7A7A82",
+ok:"#3E8E6B",warn:"#B8862D",bad:"#9E3B4D"};
+
+// ═══ BUSINESS CONFIG ════════════════════════════════════════════
+const PAY_MONTHLY="https://rzp.io/rzp/hRURAFc0";
+const PAY_YEARLY="https://rzp.io/rzp/riKwI5km";
+const FREE_INVOICES=3;
+const WHATSAPP="917978474991";
+const CODES=["LEDGR2026","LEXCONV-PRO","CA-PARTNER"];
+const GOD_CODE="RAJ-SOVEREIGN-01";
+// Auto-unlock on return from Razorpay
+(function(){try{
+const q=new URLSearchParams(window.location.search);
+const pid=q.get("razorpay_payment_id");
+if(pid&&/^pay_[A-Za-z0-9]{8,}$/.test(pid)){localStorage.setItem("ledgr_pro","1");localStorage.setItem("ledgr_payid",pid);
+window.history.replaceState({},"",window.location.pathname)}
+}catch(e){}})();
+// ════════════════════════════════════════════════════════════════
+
+const fmt=n=>"₹"+Number(n||0).toLocaleString("en-IN");
+const MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const MODULES=[{id:"dashboard",label:"COMMAND"},{id:"invoices",label:"INVOICES"},{id:"clients",label:"CLIENTS"},{id:"payments",label:"PAYMENTS"},{id:"gst",label:"GST DESK"},{id:"ca",label:"CA PORTAL"},{id:"analytics",label:"ANALYTICS"},{id:"settings",label:"CONFIG"}];
+
+function useIsMobile(){const[m,setM]=useState(false);useEffect(()=>{const c=()=>setM(window.innerWidth<768);c();window.addEventListener("resize",c);return()=>window.removeEventListener("resize",c)},[]);return m}
+function useCountUp(t,dur=900){const[v,setV]=useState(0);useEffect(()=>{let raf,s;const tick=x=>{if(!s)s=x;const p=Math.min((x-s)/dur,1);setV(t*(1-Math.pow(1-p,3)));if(p<1)raf=requestAnimationFrame(tick)};raf=requestAnimationFrame(tick);return()=>cancelAnimationFrame(raf)},[t,dur]);return v}
+
+// Logo with hidden god-entry: 5 taps within 2.5s
+function Logo({onSecret}){
+const taps=useRef([]);
+const tap=()=>{const now=Date.now();taps.current=taps.current.filter(t=>now-t<2500);taps.current.push(now);
+if(taps.current.length>=5){taps.current=[];onSecret()}};
+return(<span onClick={tap} style={{fontSize:15,fontWeight:600,letterSpacing:4,color:C.white,whiteSpace:"nowrap",cursor:"default",userSelect:"none"}}>LEDGR<span style={{color:C.gold}}>·</span></span>)}
+
+function StatusBar({pro,onSecret,onLogout}){
+const[t,setT]=useState(null);
+useEffect(()=>{setT(new Date());const i=setInterval(()=>setT(new Date()),1000);return()=>clearInterval(i)},[]);
+return(<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:"#070709",borderBottom:`1px solid ${C.border}`,padding:"9px 14px",position:"sticky",top:0,zIndex:100}}>
+<div style={{display:"flex",alignItems:"center",gap:10,minWidth:0}}>
+<Logo onSecret={onSecret}/>
+<span style={{fontSize:8,color:C.label,letterSpacing:1,whiteSpace:"nowrap"}}>by <span style={{color:C.gold}}>LexConv</span></span>
+{pro&&<span style={{fontSize:8,color:C.gold,border:`1px solid ${C.goldSoft}`,padding:"2px 7px",letterSpacing:2}}>PRO</span>}</div>
+<span style={{fontSize:12,color:C.text,fontWeight:500,letterSpacing:2}}>{t?t.toLocaleTimeString("en-IN",{hour12:false}):"--:--:--"}</span>{onLogout&&<button onClick={onLogout} style={{background:"none",border:`1px solid ${C.border2}`,color:C.label,fontFamily:"inherit",fontSize:8,letterSpacing:1.5,padding:"4px 8px",cursor:"pointer",marginLeft:4}}>EXIT</button>}</div>)}
+
+function Ticker(){
+const items=[["GSTR-1","DUE 11 JUN"],["GSTR-3B","DUE 20 JUN"],["GST 18%","STANDARD"],["E-WAY","MANDATORY >₹50K"],["ITC","CLAIM 30 NOV"],["TDS","DUE 07 JUN"]];
+const all=[...items,...items];
+return(<div style={{background:"#070709",borderBottom:`1px solid ${C.border}`,overflow:"hidden",whiteSpace:"nowrap",padding:"6px 0"}}>
+<div style={{display:"inline-flex",gap:38,animation:"tk 30s linear infinite"}}>
+{all.map((x,i)=><span key={i} style={{fontSize:9,letterSpacing:1.5,color:C.dim}}>{x[0]} <span style={{color:C.goldSoft}}>{x[1]}</span></span>)}</div></div>)}
+
+const Panel=({title,action,children,style})=>(<div className="panel-in" style={{background:C.panel,border:`1px solid ${C.border}`,...style}}>
+{title&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,padding:"10px 14px",borderBottom:`1px solid ${C.border}`,flexWrap:"wrap"}}>
+<span style={{fontSize:9,fontWeight:500,letterSpacing:2.5,color:C.label}}>{title}</span>{action}</div>}
+<div style={{padding:14}}>{children}</div></div>);
+
+const Metric=({label,value,prefix="₹",delta,deltaColor,sub,animate=true})=>{
+const num=typeof value==="number"?value:0;
+const a=useCountUp(animate?num:0);
+const disp=typeof value==="number"?prefix+Math.round(a).toLocaleString("en-IN"):value;
+return(<div className="panel-in" style={{background:C.panel,border:`1px solid ${C.border}`,padding:"14px 16px",position:"relative",overflow:"hidden"}}>
+<div style={{fontSize:8,color:C.label,letterSpacing:2,marginBottom:8}}>{label}</div>
+<div style={{fontSize:21,fontWeight:500,color:C.white,lineHeight:1,letterSpacing:.5}}>{disp}</div>
+{delta&&<div style={{fontSize:9,color:deltaColor||C.label,marginTop:6,letterSpacing:.5}}>{delta} {sub&&<span style={{color:C.dim}}>{sub}</span>}</div>}
+<div className="goldline" style={{position:"absolute",bottom:0,left:0,height:1,background:`linear-gradient(90deg,${C.gold} 0%,transparent 80%)`,opacity:.6}}/></div>)};
+
+const StatusTag=({s})=>{const m={PAID:C.ok,PENDING:C.warn,OVERDUE:C.bad,DRAFT:C.dim};
+return<span style={{fontSize:8,fontWeight:500,letterSpacing:1.5,color:m[s],border:`1px solid ${m[s]}55`,padding:"3px 8px",whiteSpace:"nowrap"}}>{s}</span>};
+
+const Empty=({msg,cta,onCta})=>(<div style={{padding:"44px 16px",textAlign:"center"}}>
+<div style={{width:32,height:1,background:C.border2,margin:"0 auto 16px"}}/>
+<div style={{fontSize:11,color:C.label,marginBottom:cta?18:0,lineHeight:1.6,letterSpacing:.5}}>{msg}</div>
+{cta&&<button onClick={onCta} style={btnPrimary}>{cta}</button>}</div>);
+
+const Scroll=({children})=><div style={{overflowX:"auto",WebkitOverflowScrolling:"touch"}}>{children}</div>;
+
+function BarChartLite({data}){
+const max=Math.max(...data.map(d=>d.v),1);
+return(<div style={{display:"flex",alignItems:"flex-end",gap:4,height:190,padding:"10px 0",borderBottom:`1px solid ${C.border}`}}>
+{data.map((d,i)=>(<div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:5,height:"100%",justifyContent:"flex-end"}}>
+<div className="bar" style={{width:"62%",height:`${(d.v/max)*100}%`,minHeight:d.v>0?2:0,background:`linear-gradient(180deg,${C.gold},${C.goldSoft})`,animationDelay:`${i*45}ms`}}/>
+<span style={{fontSize:8,color:C.dim,letterSpacing:.5}}>{d.m}</span></div>))}</div>)}
+
+// ═══ SECRET CODE ENTRY (god / unlock codes, accessible anytime) ═══
+function SecretEntry({onClose,onUnlock}){
+const[code,setCode]=useState("");
+const[err,setErr]=useState(false);
+const tryCode=()=>{const cc=code.trim().toUpperCase();
+if(CODES.includes(cc)||cc===GOD_CODE){localStorage.setItem("ledgr_pro","1");onUnlock();onClose()}
+else{setErr(true);setTimeout(()=>setErr(false),1800)}};
+return(<div style={{position:"fixed",inset:0,background:"rgba(7,7,9,.82)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:3000,padding:16}} onClick={onClose}>
+<div className="modal-in" onClick={e=>e.stopPropagation()} style={{background:C.bg,border:`1px solid ${C.goldSoft}`,width:340,maxWidth:"100%",padding:"28px 24px",textAlign:"center"}}>
+<div style={{fontSize:9,color:C.label,letterSpacing:3,marginBottom:18}}>ACCESS CODE</div>
+<input autoFocus placeholder="ENTER CODE" value={code} onChange={e=>setCode(e.target.value)} onKeyDown={e=>e.key==="Enter"&&tryCode()} style={{...input,textAlign:"center",letterSpacing:3,borderColor:err?C.bad:C.border2,marginBottom:12}}/>
+<button onClick={tryCode} style={{...btnPrimary,width:"100%"}}>AUTHORISE</button>
+{err&&<div style={{fontSize:9,color:C.bad,marginTop:10,letterSpacing:1}}>INVALID CODE</div>}
+</div></div>)}
+
+// ═══ PAYWALL · PRIVATE CLUB INVITATION ═══════════════════════════
+function Paywall({onUnlock}){
+const[code,setCode]=useState("");
+const[err,setErr]=useState(false);
+const tryCode=()=>{const cc=code.trim().toUpperCase();
+if(CODES.includes(cc)||cc===GOD_CODE){localStorage.setItem("ledgr_pro","1");onUnlock()}
+else{setErr(true);setTimeout(()=>setErr(false),1800)}};
+return(<div style={{position:"fixed",inset:0,background:"rgba(7,7,9,.55)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:2000,backdropFilter:"blur(2px)",padding:16,overflow:"auto"}}>
+<div className="modal-in" style={{background:C.bg,border:`1px solid ${C.goldSoft}`,width:430,maxWidth:"100%",textAlign:"center",padding:"40px 30px",position:"relative"}}>
+<div style={{position:"absolute",top:0,left:"50%",transform:"translateX(-50%)",width:60,height:1,background:C.gold}}/>
+<div style={{fontSize:9,color:C.label,letterSpacing:3,marginBottom:6}}>COMPLIMENTARY ACCESS CONCLUDED</div>
+<div style={{fontSize:19,fontWeight:600,color:C.white,letterSpacing:2,marginBottom:30}}>CONTINUE WITH LEDGR PRO</div>
+<div style={{display:"flex",flexDirection:"column",gap:12,marginBottom:24}}>
+<a href={PAY_MONTHLY} target="_blank" style={{textDecoration:"none",background:C.bg2,border:`1px solid ${C.border2}`,padding:"18px",display:"block"}}>
+<div style={{fontSize:30,fontWeight:500,color:C.white}}>₹999<span style={{fontSize:11,color:C.label}}> / month</span></div>
+<div style={{fontSize:8,color:C.label,letterSpacing:2,marginTop:6}}>UNLIMITED INVOICES · ALL MODULES</div></a>
+<a href={PAY_YEARLY} target="_blank" style={{textDecoration:"none",background:C.bg2,border:`1px solid ${C.goldSoft}`,padding:"18px",display:"block",position:"relative"}}>
+<div style={{position:"absolute",top:-8,right:14,background:C.gold,color:"#0A0A0C",fontSize:7,fontWeight:600,letterSpacing:1.5,padding:"3px 9px"}}>TWO MONTHS COMPLIMENTARY</div>
+<div style={{fontSize:30,fontWeight:500,color:C.gold}}>₹9,999<span style={{fontSize:11,color:C.label}}> / year</span></div>
+<div style={{fontSize:8,color:C.label,letterSpacing:2,marginTop:6}}>PREFERRED · SAVE ₹1,989</div></a></div>
+<div style={{fontSize:8,color:C.dim,letterSpacing:1.5,marginBottom:18,lineHeight:1.8}}>ACCESS RESTORES AUTOMATICALLY UPON PAYMENT<br/>OR ENTER YOUR CODE BELOW</div>
+<div style={{display:"flex",gap:8,marginBottom:10}}>
+<input placeholder="ACCESS CODE" value={code} onChange={e=>setCode(e.target.value)} onKeyDown={e=>e.key==="Enter"&&tryCode()} style={{...input,textAlign:"center",letterSpacing:3,borderColor:err?C.bad:C.border2}}/>
+<button onClick={tryCode} style={{...btnPrimary,whiteSpace:"nowrap"}}>ENTER</button></div>
+{err&&<div style={{fontSize:9,color:C.bad,marginBottom:8,letterSpacing:1}}>INVALID CODE</div>}
+<a href={`https://wa.me/${WHATSAPP}?text=Hi, I paid for LEDGR. Please send my access code.`} target="_blank" style={{fontSize:9,color:C.label,letterSpacing:1,textDecoration:"none",borderBottom:`1px solid ${C.border2}`}}>ASSISTANCE VIA WHATSAPP →</a>
+</div></div>)}
+
+function Dashboard({invoices,onCreate}){
+const t=useMemo(()=>({invoiced:invoices.reduce((s,i)=>s+i.amount+i.gst,0),collected:invoices.filter(i=>i.status==="PAID").reduce((s,i)=>s+i.amount+i.gst,0),outstanding:invoices.filter(i=>i.status==="PENDING").reduce((s,i)=>s+i.amount+i.gst,0),overdue:invoices.filter(i=>i.status==="OVERDUE").reduce((s,i)=>s+i.amount+i.gst,0)}),[invoices]);
+const rev=useMemo(()=>{const m={};invoices.forEach(i=>{const k=MONTHS[new Date(i.date).getMonth()];m[k]=(m[k]||0)+i.amount+i.gst});return MONTHS.map(k=>({m:k,v:Math.round((m[k]||0)/1000)}))},[invoices]);
+if(invoices.length===0)return(<div style={{display:"flex",flexDirection:"column",gap:10}}>
+<div className="grid4">{["INVOICED","COLLECTED","OUTSTANDING","OVERDUE"].map(l=><Metric key={l} label={l} value={0}/>)}</div>
+<Panel title="COMMAND CENTER"><Empty msg="No invoices on record. Create your first to activate the terminal." cta="CREATE FIRST INVOICE" onCta={onCreate}/></Panel></div>);
+return(<div style={{display:"flex",flexDirection:"column",gap:10}}>
+<div className="grid4">
+<Metric label="INVOICED · TOTAL" value={t.invoiced}/>
+<Metric label="COLLECTED" value={t.collected} deltaColor={C.ok} delta={t.invoiced?Math.round(t.collected/t.invoiced*100)+"% collection rate":""}/>
+<Metric label="OUTSTANDING" value={t.outstanding} deltaColor={C.warn} delta={invoices.filter(i=>i.status==="PENDING").length+" pending"}/>
+<Metric label="OVERDUE" value={t.overdue} deltaColor={C.bad} delta={invoices.filter(i=>i.status==="OVERDUE").length+" overdue"}/></div>
+<Panel title="REVENUE · BY MONTH (₹ THOUSANDS)"><BarChartLite data={rev}/></Panel></div>)}
+
+function Invoices({invoices,onCreate,onStatus}){
+const[f,setF]=useState("ALL");
+const fl=f==="ALL"?invoices:invoices.filter(i=>i.status===f);
+return(<Panel title="INVOICE LEDGER" action={<button onClick={onCreate} style={btnPrimary}>+ NEW</button>}>
+<div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
+{["ALL","PAID","PENDING","OVERDUE"].map(x=><button key={x} onClick={()=>setF(x)} style={{...chip,...(f===x?chipActive:{})}}>{x}</button>)}</div>
+{fl.length===0?<Empty msg="No invoices in this view." cta="CREATE INVOICE" onCta={onCreate}/>:
+<Scroll><table style={tbl}><thead><tr style={trHead}><th style={th}>INVOICE</th><th style={th}>CLIENT</th><th style={thR}>AMOUNT</th><th style={thR}>GST</th><th style={thC}>STATUS</th><th style={thR}>DATE</th></tr></thead><tbody>
+{fl.map(inv=>(<tr key={inv.id} className="row-hover" style={{borderBottom:`1px solid ${C.border}`}}>
+<td style={{...td,color:C.gold,whiteSpace:"nowrap"}}>{inv.id}</td>
+<td style={{...td,whiteSpace:"nowrap"}}>{inv.client}</td>
+<td style={tdR}>{fmt(inv.amount)}</td>
+<td style={{...tdR,color:C.label}}>{fmt(inv.gst)}</td>
+<td style={tdC} onClick={()=>onStatus(inv.id)}><StatusTag s={inv.status}/></td>
+<td style={{...tdR,color:C.dim,whiteSpace:"nowrap"}}>{inv.date}</td></tr>))}</tbody></table></Scroll>}</Panel>)}
+
+function Clients({invoices}){
+const cl=useMemo(()=>{const m={};invoices.forEach(i=>{if(!m[i.client])m[i.client]={name:i.client,gstin:i.clientGstin||"—",total:0,outstanding:0};m[i.client].total+=i.amount+i.gst;if(i.status!=="PAID")m[i.client].outstanding+=i.amount+i.gst});return Object.values(m)},[invoices]);
+return(<Panel title="CLIENT VAULT">
+{cl.length===0?<Empty msg="Clients are recorded automatically as you invoice them."/>:
+<Scroll><table style={tbl}><thead><tr style={trHead}><th style={th}>CLIENT</th><th style={th}>GSTIN</th><th style={thR}>LIFETIME</th><th style={thR}>OUTSTANDING</th></tr></thead><tbody>
+{cl.map(c=>(<tr key={c.name} className="row-hover" style={{borderBottom:`1px solid ${C.border}`}}>
+<td style={{...td,color:C.white,whiteSpace:"nowrap"}}>{c.name}</td>
+<td style={{...td,color:C.label,fontSize:10,whiteSpace:"nowrap"}}>{c.gstin}</td>
+<td style={tdR}>{fmt(c.total)}</td>
+<td style={{...tdR,color:c.outstanding>0?C.bad:C.ok}}>{fmt(c.outstanding)}</td></tr>))}</tbody></table></Scroll>}</Panel>)}
+
+function Payments({invoices}){
+const p=invoices.filter(i=>i.status!=="PAID");
+return(<Panel title="COLLECTION QUEUE">
+{p.length===0?<Empty msg="No outstanding payments. All accounts settled."/>:
+<Scroll><table style={tbl}><thead><tr style={trHead}><th style={th}>INVOICE</th><th style={th}>CLIENT</th><th style={thR}>DUE</th><th style={thC}>STATUS</th><th style={thC}>ACTION</th></tr></thead><tbody>
+{p.map(inv=>(<tr key={inv.id} className="row-hover" style={{borderBottom:`1px solid ${C.border}`}}>
+<td style={{...td,color:C.gold,whiteSpace:"nowrap"}}>{inv.id}</td>
+<td style={{...td,whiteSpace:"nowrap"}}>{inv.client}</td>
+<td style={tdR}>{fmt(inv.amount+inv.gst)}</td>
+<td style={tdC}><StatusTag s={inv.status}/></td>
+<td style={tdC}><a href={`https://wa.me/?text=Reminder: Invoice ${inv.id} of ${fmt(inv.amount+inv.gst)} is due. Kindly arrange payment.`} target="_blank" style={{...btnGhost,fontSize:8,textDecoration:"none"}}>REMIND</a></td></tr>))}</tbody></table></Scroll>}</Panel>)}
+
+function GSTDesk({invoices}){
+const o=invoices.reduce((s,i)=>s+i.gst,0);
+return(<div style={{display:"flex",flexDirection:"column",gap:10}}>
+<div className="grid3">
+<Metric label="OUTPUT TAX" value={o} deltaColor={C.ok} delta={invoices.length?"GSTR-1 ready":""}/>
+<Metric label="INPUT TAX CREDIT" value={0} delta="record purchases to claim"/>
+<Metric label="NET LIABILITY" value={o} deltaColor={C.warn} delta="due 20th"/></div>
+<Panel title="GSTR-1 SUMMARY">
+{invoices.length===0?<Empty msg="GSTR-1 summary builds from your invoice records."/>:
+<div style={{fontSize:11,color:C.text}}>
+<div style={{display:"flex",justifyContent:"space-between",padding:"10px 0",borderBottom:`1px solid ${C.border}`}}><span style={{color:C.label}}>Total Invoices</span><span>{invoices.length}</span></div>
+<div style={{display:"flex",justifyContent:"space-between",padding:"10px 0",borderBottom:`1px solid ${C.border}`}}><span style={{color:C.label}}>Taxable Value</span><span>{fmt(invoices.reduce((s,i)=>s+i.amount,0))}</span></div>
+<div style={{display:"flex",justifyContent:"space-between",padding:"10px 0"}}><span style={{color:C.label}}>Total Tax</span><span style={{color:C.gold}}>{fmt(o)}</span></div></div>}</Panel></div>)}
+
+function CAPortal(){
+return(<div style={{display:"flex",flexDirection:"column",gap:10}}>
+<div className="grid3">
+<Metric label="CLIENTS MANAGED" value={0} animate={false} delta="onboard to begin"/>
+<Metric label="COMMISSION · 30%" value={0} deltaColor={C.ok} sub="/month"/>
+<Metric label="COMPLIANCE RATE" value="—" animate={false}/></div>
+<Panel title="CA PARTNERSHIP PROGRAMME">
+<div style={{fontSize:12,color:C.text,lineHeight:1.9}}>
+{["30% recurring commission on every client","Complimentary master dashboard for all clients","Co-branded invoices with your firm's mark","Your clients pay ₹999/mo — you earn ₹300/mo each"].map((f,i)=>(<div key={i} style={{display:"flex",gap:12,alignItems:"flex-start",padding:"6px 0",borderBottom:i<3?`1px solid ${C.border}`:"none"}}><span style={{color:C.gold,fontSize:10,marginTop:3}}>—</span><span>{f}</span></div>))}
+<a href={`https://wa.me/${WHATSAPP}?text=Hi, I'm a CA interested in the LEDGR partnership programme.`} target="_blank" style={{...btnPrimary,marginTop:18,display:"inline-block",textDecoration:"none"}}>ENQUIRE →</a></div></Panel></div>)}
+
+function Analytics({invoices}){
+const rev=useMemo(()=>{const m={};invoices.forEach(i=>{const k=MONTHS[new Date(i.date).getMonth()];m[k]=(m[k]||0)+i.amount+i.gst});return MONTHS.map(k=>({m:k,v:Math.round((m[k]||0)/1000)}))},[invoices]);
+return(<Panel title="REVENUE TREND (₹ THOUSANDS)">{invoices.length===0?<Empty msg="Analytics populate as records accumulate."/>:<BarChartLite data={rev}/>}</Panel>)}
+
+function Settings({pro}){
+return(<div className="grid2">
+<Panel title="BUSINESS PROFILE">
+{[["Business Name",""],["GSTIN",""],["Invoice Prefix","INV-"],["Address",""]].map((x,i)=>(<div key={i} style={{marginBottom:12}}>
+<div style={{fontSize:8,color:C.label,letterSpacing:2,marginBottom:5}}>{x[0].toUpperCase()}</div>
+<input defaultValue={x[1]} placeholder={"Enter "+x[0].toLowerCase()} style={input}/></div>))}
+<button style={btnPrimary}>SAVE PROFILE</button></Panel>
+<Panel title="MEMBERSHIP">
+{pro?(<div>
+<div style={{fontSize:12,color:C.gold,letterSpacing:2,marginBottom:10}}>PRO · ACTIVE</div>
+<div style={{fontSize:11,color:C.text,lineHeight:1.9}}>Unlimited invoices · CA portal · GST exports · All modules</div></div>):(<div>
+<div style={{display:"flex",alignItems:"baseline",gap:8,marginBottom:6}}>
+<span style={{fontSize:30,fontWeight:500,color:C.white}}>₹999</span>
+<span style={{fontSize:11,color:C.label,letterSpacing:1}}>/ MONTH</span></div>
+<div style={{fontSize:10,color:C.label,marginBottom:14}}>or ₹9,999 / year — two months complimentary</div>
+<a href={PAY_YEARLY} target="_blank" style={{...btnPrimary,width:"100%",display:"block",textAlign:"center",textDecoration:"none"}}>UPGRADE →</a></div>)}</Panel></div>)}
+
+function InvoiceBuilder({onClose,onSave,seq,isMobile}){
+const[client,setClient]=useState("");
+const[gstin,setGstin]=useState("");
+const[items,setItems]=useState([{id:1,desc:"",hsn:"",qty:1,rate:"",gst:18}]);
+const sub=items.reduce((s,it)=>s+Number(it.qty)*Number(it.rate||0),0);
+const gst=items.reduce((s,it)=>s+(Number(it.qty)*Number(it.rate||0)*Number(it.gst))/100,0);
+const setItem=(id,k,v)=>setItems(items.map(it=>it.id===id?{...it,[k]:v}:it));
+const save=st=>{if(!client||sub===0){alert("Enter client name and at least one item with a rate.");return}onSave({id:"INV-"+String(seq).padStart(6,"0"),client,clientGstin:gstin,amount:sub,gst,status:st,date:new Date().toISOString().split("T")[0]});onClose()};
+return(<div style={{position:"fixed",inset:0,background:"rgba(7,7,9,.88)",display:"flex",alignItems:isMobile?"flex-start":"center",justifyContent:"center",zIndex:1000,backdropFilter:"blur(4px)",padding:isMobile?0:16,overflow:"auto"}}>
+<div className="modal-in" style={{background:C.bg,border:`1px solid ${C.goldSoft}`,width:700,maxWidth:"100%",minHeight:isMobile?"100vh":"auto"}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 18px",borderBottom:`1px solid ${C.border2}`,position:"sticky",top:0,background:C.bg}}>
+<span style={{fontWeight:600,letterSpacing:3,fontSize:11,color:C.gold}}>NEW INVOICE</span>
+<button onClick={onClose} style={{background:"none",border:"none",fontSize:18,cursor:"pointer",color:C.label}}>✕</button></div>
+<div style={{padding:18}}>
+<div className="grid2" style={{marginBottom:14}}>
+<input placeholder="Client name *" style={input} value={client} onChange={e=>setClient(e.target.value)}/>
+<input placeholder="Client GSTIN" style={input} value={gstin} onChange={e=>setGstin(e.target.value.toUpperCase())} maxLength={15}/></div>
+<div style={{fontSize:8,color:C.label,letterSpacing:2.5,marginBottom:10}}>LINE ITEMS</div>
+{items.map(it=>(<div key={it.id} style={{display:"flex",gap:5,marginBottom:6,flexWrap:"wrap"}}>
+<input placeholder="Description" style={{...input,flex:"1 1 100%",minWidth:0}} value={it.desc} onChange={e=>setItem(it.id,"desc",e.target.value)}/>
+<input placeholder="HSN" style={{...input,flex:1,minWidth:0}} value={it.hsn} onChange={e=>setItem(it.id,"hsn",e.target.value)}/>
+<input placeholder="Qty" type="number" style={{...input,flex:1,minWidth:0}} value={it.qty} onChange={e=>setItem(it.id,"qty",e.target.value)}/>
+<input placeholder="Rate" type="number" style={{...input,flex:1.5,minWidth:0}} value={it.rate} onChange={e=>setItem(it.id,"rate",e.target.value)}/>
+<select style={{...input,flex:1,minWidth:0}} value={it.gst} onChange={e=>setItem(it.id,"gst",Number(e.target.value))}>{[0,5,12,18,28].map(r=><option key={r} value={r}>{r}%</option>)}</select></div>))}
+<button onClick={()=>setItems([...items,{id:Date.now(),desc:"",hsn:"",qty:1,rate:"",gst:18}])} style={{...chip,marginTop:6}}>+ ADD ITEM</button>
+<div style={{marginTop:20,padding:16,background:C.panel,border:`1px solid ${C.border}`}}>
+<div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:C.label,padding:"5px 0",letterSpacing:1}}><span>TAXABLE</span><span>{fmt(sub)}</span></div>
+<div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:C.label,padding:"5px 0",letterSpacing:1}}><span>CGST + SGST</span><span>{fmt(gst)}</span></div>
+<div style={{display:"flex",justifyContent:"space-between",fontSize:15,color:C.gold,fontWeight:500,padding:"10px 0 0",borderTop:`1px solid ${C.goldSoft}`,marginTop:8,letterSpacing:1}}><span>GRAND TOTAL</span><span>{fmt(sub+gst)}</span></div></div>
+<div style={{display:"flex",gap:10,marginTop:16,flexWrap:"wrap"}}>
+<button onClick={()=>save("PENDING")} style={{...btnGhost,flex:1,minWidth:130}}>SAVE AS PENDING</button>
+<button onClick={()=>save("PAID")} style={{...btnPrimary,flex:1,minWidth:130}}>SAVE AS PAID</button></div></div></div></div>)}
+
+const btnPrimary={background:C.gold,color:"#0A0A0C",border:"none",fontFamily:"inherit",fontWeight:600,fontSize:10,letterSpacing:2,padding:"10px 16px",cursor:"pointer"};
+const btnGhost={background:"none",border:`1px solid ${C.border2}`,color:C.text,fontFamily:"inherit",fontWeight:500,fontSize:10,letterSpacing:2,padding:"10px 16px",cursor:"pointer"};
+const chip={background:"none",border:`1px solid ${C.border2}`,color:C.label,fontFamily:"inherit",fontSize:9,letterSpacing:1.5,padding:"6px 12px",cursor:"pointer"};
+const chipActive={borderColor:C.gold,color:C.gold};
+const input={background:C.bg3,border:`1px solid ${C.border2}`,color:C.white,fontFamily:"inherit",fontSize:13,padding:"10px 11px",outline:"none",width:"100%"};
+const tbl={width:"100%",borderCollapse:"collapse",fontSize:11,minWidth:460};
+const trHead={color:C.dim,fontSize:8,letterSpacing:1.5,textAlign:"left",borderBottom:`1px solid ${C.border2}`};
+const th={padding:"9px 6px",fontWeight:500};
+const thR={...th,textAlign:"right"};
+const thC={...th,textAlign:"center"};
+const td={padding:"11px 6px",color:C.text};
+const tdR={...td,textAlign:"right"};
+const tdC={...td,textAlign:"center"};
+
+function AuthGate({onAuthed}){
+const[mode,setMode]=useState("login");
+const[email,setEmail]=useState("");
+const[pw,setPw]=useState("");
+const[busy,setBusy]=useState(false);
+const[err,setErr]=useState("");
+const submit=async()=>{
+if(!email||!pw){setErr("Enter email and password");return}
+if(pw.length<6){setErr("Password must be at least 6 characters");return}
+setBusy(true);setErr("");
+try{
+let res;
+if(mode==="signup"){res=await sb.auth.signUp({email,password:pw});}
+else{res=await sb.auth.signInWithPassword({email,password:pw});}
+if(res.error){setErr(res.error.message);setBusy(false);return}
+
+if(!res.data.session){
+const si=await sb.auth.signInWithPassword({email,password:pw});
+if(si.error){setErr("Account created. Please log in.");setMode("login");setBusy(false);return}
+}
+onAuthed();
+}catch(e){setErr(e.message||"Something went wrong");setBusy(false)}
+};
+return(<div style={{minHeight:"100vh",background:C.bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:20}}>
+<div style={{fontSize:24,fontWeight:600,letterSpacing:6,color:C.white,marginBottom:6}}>INSPECTOR<span style={{color:C.steel}}>·</span></div>
+<div style={{fontSize:9,color:C.label,letterSpacing:3,marginBottom:36}}>INDUSTRIAL COMPLIANCE VAULT</div>
+<div style={{width:360,maxWidth:"100%",border:`1px solid ${C.steelSoft}`,background:"#000",padding:"30px 26px"}}>
+<div style={{display:"flex",gap:0,marginBottom:24,borderBottom:`1px solid ${C.border2}`}}>
+<button onClick={()=>{setMode("login");setErr("")}} style={{flex:1,background:"none",border:"none",borderBottom:mode==="login"?`2px solid ${C.steel}`:"2px solid transparent",color:mode==="login"?C.steel:C.label,fontFamily:"inherit",fontSize:11,letterSpacing:2,padding:"10px 0",cursor:"pointer"}}>LOG IN</button>
+<button onClick={()=>{setMode("signup");setErr("")}} style={{flex:1,background:"none",border:"none",borderBottom:mode==="signup"?`2px solid ${C.steel}`:"2px solid transparent",color:mode==="signup"?C.steel:C.label,fontFamily:"inherit",fontSize:11,letterSpacing:2,padding:"10px 0",cursor:"pointer"}}>SIGN UP</button></div>
+<div style={{fontSize:8,color:C.label,letterSpacing:2,marginBottom:5}}>EMAIL</div>
+<input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@mill.com" style={{...input,marginBottom:14}}/>
+<div style={{fontSize:8,color:C.label,letterSpacing:2,marginBottom:5}}>PASSWORD</div>
+<input type="password" value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submit()} placeholder="\u2022\u2022\u2022\u2022\u2022\u2022" style={{...input,marginBottom:18}}/>
+<button onClick={submit} disabled={busy} style={{...btnPrimary,width:"100%",opacity:busy?.6:1}}>{busy?"PLEASE WAIT...":(mode==="signup"?"CREATE ACCOUNT \u2192":"ENTER \u2192")}</button>
+{err&&<div style={{fontSize:9,color:C.bad,marginTop:12,letterSpacing:.5,lineHeight:1.5}}>{err}</div>}
+{mode==="signup"&&<div style={{fontSize:8,color:C.dim,marginTop:14,letterSpacing:1,lineHeight:1.6}}>7-DAY FREE TRIAL STARTS ON SIGNUP. NO CARD NEEDED.</div>}
+</div></div>)}
+
+function LEDGR(){
+const[active,setActive]=useState("dashboard");
+const[showB,setShowB]=useState(false);
+const[showSecret,setShowSecret]=useState(false);
+const[pro,setPro]=useState(false);
+const[godPro,setGodPro]=useState(()=>localStorage.getItem("ledgr_god")==="1");
+const[invoices,setInvoices]=useState([]);
+const[loading,setLoading]=useState(true);
+const isMobile=useIsMobile();
+const uid=useRef(null);
+useEffect(()=>{(async()=>{
+try{
+const q=new URLSearchParams(window.location.search);
+const pid=q.get("razorpay_payment_id");
+if(pid&&/^pay_[A-Za-z0-9]{8,}$/.test(pid)){window.history.replaceState({},"",window.location.pathname);setPro(true);}
+const{data:{user}}=await sb.auth.getUser();
+if(!user){setLoading(false);return}
+uid.current=user.id||user.sub;
+try{const{data:p}=await sb.from("profiles").select("is_pro").eq("id",uid.current).single();if(p&&p.is_pro)setPro(true);}catch(e){}
+try{const{data:inv}=await sb.from("invoices").select("*").eq("user_id",uid.current).order("created_at",{ascending:false});
+if(inv&&Array.isArray(inv))setInvoices(inv.map(i=>({id:i.invoice_id,client:i.client,clientGstin:i.client_gstin,amount:Number(i.amount),gst:Number(i.gst),status:i.status,date:i.date,_dbid:i.id})));}catch(e){}
+}catch(e){}
+setLoading(false);
+})()},[]);
+const seq=1001+invoices.length;
+const isProActive=pro||godPro;
+const walled=!isProActive&&invoices.length>=FREE_INVOICES;
+const add=async inv=>{setInvoices(p=>[inv,...p]);
+try{if(uid.current)await sb.from("invoices").insert({user_id:uid.current,invoice_id:inv.id,client:inv.client,client_gstin:inv.clientGstin||"",amount:inv.amount,gst:inv.gst,status:inv.status,date:inv.date})}catch(e){}};
+const tryCreate=()=>{if(walled)return;setShowB(true)};
+const cycle=async id=>{setInvoices(p=>p.map(i=>{if(i.id!==id)return i;
+const ns={PENDING:"PAID",PAID:"OVERDUE",OVERDUE:"PENDING"}[i.status]||"PENDING";
+try{if(uid.current&&i._dbid)sb.from("invoices").update({status:ns}).eq("id",i._dbid)}catch(e){}
+return{...i,status:ns}}));};
+if(loading)return(<div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",color:C.label,fontSize:10,letterSpacing:3}}>LOADING...</div>);
+const render=()=>{switch(active){
+case"dashboard":return<Dashboard invoices={invoices} onCreate={tryCreate}/>;
+case"invoices":return<Invoices invoices={invoices} onCreate={tryCreate} onStatus={cycle}/>;
+case"clients":return<Clients invoices={invoices}/>;
+case"payments":return<Payments invoices={invoices}/>;
+case"gst":return<GSTDesk invoices={invoices}/>;
+case"ca":return<CAPortal/>;
+case"analytics":return<Analytics invoices={invoices}/>;
+case"settings":return<Settings pro={pro}/>;
+default:return<Dashboard invoices={invoices} onCreate={tryCreate}/>}};
+const NavBtn=({m})=>(<button onClick={()=>setActive(m.id)} style={{display:"flex",alignItems:"center",padding:isMobile?"9px 15px":"11px 18px",width:isMobile?"auto":"100%",background:"transparent",border:"none",borderLeft:isMobile?"none":(active===m.id?`1px solid ${C.gold}`:"1px solid transparent"),borderBottom:isMobile?(active===m.id?`1px solid ${C.gold}`:"1px solid transparent"):"none",color:active===m.id?C.gold:C.label,fontFamily:"inherit",fontSize:10,letterSpacing:2,cursor:"pointer",textAlign:"left",whiteSpace:"nowrap"}}>{m.label}</button>);
+return(<div style={{background:C.bg,color:C.text,minHeight:"100vh",fontSize:12}}>
+<StatusBar pro={isProActive} onSecret={()=>setShowSecret(true)} onLogout={async()=>{await sb.auth.signOut();location.reload()}}/>
+<Ticker/>
+{isMobile&&<div style={{display:"flex",overflowX:"auto",background:"#070709",borderBottom:`1px solid ${C.border}`,WebkitOverflowScrolling:"touch"}}>{MODULES.map(m=><NavBtn key={m.id} m={m}/>)}</div>}
+<div style={{display:"flex",minHeight:"calc(100vh - 72px)"}}>
+{!isMobile&&<div style={{width:176,background:"#070709",borderRight:`1px solid ${C.border}`,padding:"14px 0",flexShrink:0}}>
+{MODULES.map(m=><NavBtn key={m.id} m={m}/>)}
+<div style={{padding:"18px",marginTop:24,borderTop:`1px solid ${C.border}`}}>
+<div style={{fontSize:8,color:C.dim,letterSpacing:2,marginBottom:8}}>MEMBERSHIP</div>
+<div style={{fontSize:11,color:C.gold,letterSpacing:1.5}}>{isProActive?"PRO":"FREE"}</div>
+<div style={{fontSize:8,color:C.label,marginTop:5,letterSpacing:.5}}>{isProActive?"Unlimited access":`${Math.max(0,FREE_INVOICES-invoices.length)} free invoices left`}</div></div></div>}
+<div style={{flex:1,padding:14,overflow:"hidden",minWidth:0}} className={walled?"blurred":""}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:8}}>
+<h1 style={{fontSize:12,fontWeight:500,letterSpacing:3,color:C.white}}>{MODULES.find(m=>m.id===active).label}</h1>
+<span style={{fontSize:8,color:C.dim,letterSpacing:2}}>LIVE</span></div>
+{render()}</div></div>
+{walled&&<Paywall onUnlock={async()=>{setPro(true);try{if(uid.current)await sb.from("profiles").update({is_pro:true}).eq("id",uid.current)}catch(e){}}}/>}
+{showSecret&&<SecretEntry onClose={()=>setShowSecret(false)} onUnlock={()=>{setGodPro(true);localStorage.setItem("ledgr_god","1")}}/>}
+{showB&&!walled&&<InvoiceBuilder onClose={()=>setShowB(false)} onSave={add} seq={seq} isMobile={isMobile}/>}</div>)}
+
+
+function App(){
+
+const[session,setSession]=useState(undefined); // undefined=loading, null=logged out, obj=logged in
+useEffect(()=>{
+sb.auth.getSession().then(({data})=>setSession(data.session));
+const{data:sub}=sb.auth.onAuthStateChange((_e,s)=>setSession(s));
+return()=>sub.subscription.unsubscribe();
+},[]);
+if(session===undefined)return(<div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",color:C.label,fontSize:10,letterSpacing:3}}>INITIALIZING...</div>);
+if(!session)return<AuthGate onAuthed={async()=>{
+const{data}=await sb.auth.getSession();
+if(data.session){setSession(data.session);}
+else{const{data:u}=await sb.auth.getUser();
+if(u&&u.user)setSession({user:u.user,access_token:"active"});}
+}}/>;
+return<LEDGR key={session?.user?.id||"app"}/>;
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
